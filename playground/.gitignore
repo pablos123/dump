@@ -1,0 +1,10 @@
+main
+a
+sws
+config/config
+*.pls_cache
+*.out
+*/.obsidian/*
+*.pdf
+*.jpg
+*.png

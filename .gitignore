@@ -1,0 +1,5 @@
+*.out
+*.o
+build*
+!build/.persist
+__pycache__

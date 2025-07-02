@@ -1,0 +1,13 @@
+---
+
+# https://kodi.wiki/view/HOW-TO:Install_Kodi_for_Linux
+- name: Install the media server...
+  become: true
+  block:
+    - name: Install kodi...
+      ansible.builtin.shell: |
+        apt install software-properties-common
+        add-apt-repository -y ppa:team-xbmc/ppa
+        apt install kodi
+
+...
