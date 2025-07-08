@@ -1,0 +1,189 @@
+#!/bin/python3
+
+# Stupid interpreter. Thought in an afternoon.
+# Just for understanding https://homepages.cwi.nl/~aeb/std/hashexclam-1.html
+
+import sys
+import os
+
+
+def e(e: str) -> None:
+    global lc
+    print(
+        f"EXTREMELY CHAOTIC ERROR in line {lc + 1}: {e}!!!",
+    )
+
+
+def d(strs: list[str]) -> None:
+    global vars
+    r: list[str | float] = []
+    for s in strs[1:]:
+        try:
+            r.append(float(s))
+        except ValueError:
+            r.append(s)
+    vars[strs[0]] = r
+
+
+def coo(strs: list[str]) -> None:
+    if not strs.__len__() > 1:
+        e("coo takes at least 2 arguments")
+        return
+
+    global vars
+    try:
+        v = vars[strs[0]]
+    except KeyError:
+        e("the first argument of coo needs to be a variable")
+        return
+
+    vs: list[str | float]
+    for s in strs[1:]:
+        try:
+            vs = vars[s]
+        except KeyError:
+            try:
+                v.append(float(s))
+            except ValueError:
+                v.append(s)
+            continue
+        v.extend(vs)
+
+
+# TODO
+def soo(strs: list[str]) -> None:
+    if not strs.__len__() > 1:
+        return
+
+    global vars
+    try:
+        vars[strs[0]]
+    except KeyError:
+        return
+
+    r: list[str | float] = vars[strs[0]]
+    v: list[str | float]
+    for i, s in enumerate(strs[1:]):
+        try:
+            r[i]
+        except IndexError:
+            # get more space
+            pass
+
+        try:
+            v = vars[s]
+        except KeyError:
+            if type(r[i]) is float:
+                try:
+                    r[i] += float(s)
+                except ValueError:
+                    r[i] = str(r[i]) + s
+            else:
+                r[i] += s
+            continue
+
+        for vs in v:
+            if type(vs) is float:
+                try:
+                    r[i - 1] += float(s)
+                except ValueError:
+                    r[i - 1] = str(r[i - 1]) + s
+            else:
+                r[i - 1] += s
+            continue
+
+    vars[strs[0]] = r
+
+
+# TODO:
+def boo(strs: str) -> None:
+    global boos
+
+
+def boon(strs: str) -> None:
+    global boos
+    _ = boos.pop()
+
+
+def poo(strs: list[str]) -> None:
+    global vars
+    r: str = ""
+    for s in strs:
+        try:
+            r += str(vars[s]) + " "
+        except KeyError:
+            r += s + " "
+            continue
+    print(r)
+
+
+def goo(ps: str) -> None:
+    global lc
+
+    try:
+        nlc = int(ps[0]) - 2
+        if nlc < 0:
+            return
+        lc = nlc
+    except (IndexError, ValueError):
+        return
+
+
+def intepreter(argv: list):
+    file_path: str = ""
+    if len(argv) == 2:
+        file_path = argv[1]
+    elif len(argv) > 2:
+        file_path = argv[2]
+    assert os.path.isfile(file_path)
+
+    lines: list[str] = []
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+
+    global oprations
+    global lc
+
+    while lc != len(lines):
+        sl: list[str] = lines[lc].split()
+
+        if not sl or sl[0].startswith("#"):
+            lc += 1
+            continue
+
+        if sl[0] == "endboo":
+            break
+
+        operation = operations.get(sl[0])
+        if operation is None:
+            d(sl)
+            lc += 1
+            continue
+
+        operation(sl[1:])
+
+        lc += 1
+
+
+if __name__ == "__main__":
+    global boos
+    global vars
+    global operations
+    global lc
+
+    vars = {}
+
+    operations = {
+        "soo": soo,
+        "boo": boo,
+        "boon": boon,
+        "poo": poo,
+        "goo": goo,
+        "coo": coo,
+    }
+
+    lc = 0
+
+    boos = [True]
+
+    intepreter(sys.argv)
