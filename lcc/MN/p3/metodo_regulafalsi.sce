@@ -1,6 +1,6 @@
 funcprot(0)
 
-function y = metodo_regulafalsi_iterativo(f, a, b, e, it);
+function y = metodo_regulafalsi(f, a, b, e, it);
     fb = f(b)
     fa = f(a)
 

@@ -13,7 +13,7 @@ function y = metodo_newton(f, df, x0, e, it)
     y = x1
 endfunction
 
-// inv(df(f))
+// inv_df = inv(df(f))
 function y = metodo_newton_vectorial(f, inv_df, x0, e, it)
     x1 = x0 - inv_df(x0) * f(x0)
 
