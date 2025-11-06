@@ -7,28 +7,28 @@ endfunction
 function gersh(A)
     [n, m] = size(A);
     centros = diag(A);
-    radios = sum(abs(A), 'c') - abs(centros) ;
-    
-    // buscamos calcular un rectángulo que contenga a todos los circulos
+    radios = sum(abs(A), 'c') - abs(centros);
+
+    // Buscamos calcular un rectángulo que contenga a todos los circulos
     // esquina inferior izquierda
-    
+
     mx = round (min(centros - radios) - 1);
     my = round (min(-radios) - 1);
-    
-    // esquina superior derecha
-    
+
+    // Esquina superior derecha
+
     Mx = round(max(centros + radios) + 1);
     My = round(max(radios) + 1);
-    
+
     rectangulo = [mx my Mx My];
-    
-    // dibujamos los autovalores
-    plot2d(real(spec(A)), imag(spec(A)), -1, "031", "", rectangulo)
-    replot(rectangulo); // reemplaza al rect
+
+    // Dibujamos los autovalores
+    plot2d(real(spec(A)), imag(spec(A)), -1, "031", "", rectangulo);
+    replot(rectangulo); // Reemplaza al rect
     xgrid();
-    
-    for i=1:n
-        circ(radios(i), centros(i), 0)
+
+    for i = 1:n
+        circ(radios(i), centros(i), 0);
     end
-    
+
 endfunction
