@@ -1,39 +1,66 @@
+// ============================================================================
+// 6.1 - Metodo de la Potencia
+// Unidad 6: Autovalores y autovectores
+// ============================================================================
 funcprot(0)
-// Argumentos: Matriz, Aproximacion inicial, Condicion de corte, Maximo de iteraciones
-// Devuelve el autovalor aproximado en la iteración n y el autovector aproximado zn
-// Ej: [x, y] = mpotencia([ 12 1 3 4; 1 -3 1 5; 3 1 6 -2; 4 5 -2 1], [1 2 3 4]', %eps, 22000)
-function [l, zn] = mpotencia(A, z0, eps, m)
+
+// Metodo de la potencia para encontrar el autovalor dominante y su autovector.
+// En cada iteracion calcula w = A*z, normaliza y obtiene el autovalor.
+//
+// Parametros:
+//   A        - matriz cuadrada
+//   z0       - aproximacion inicial del autovector
+//   eps      - tolerancia del error
+//   max_iter - maximo de iteraciones
+// Devuelve: [autovalor, autovector] autovalor dominante y su autovector
+function [autovalor, autovector] = mpotencia(A, z0, eps, max_iter)
     // Calculo w1
-    w = A * z0;
+    w = A * z0
 
     // Elijo una componente no nula de w1
-    [m, j] = max(abs(w));
+    [valor_max, j] = max(abs(w))
 
-    // Calculo l1, en l estará el autovalor
-    l = w(j) / z0(j);
+    // Calculo l1, en autovalor estara el autovalor
+    autovalor = w(j) / z0(j)
 
     // Normalizo y obtengo z1
-    zn = w / l;
+    autovector = w / autovalor
 
-    iter = 1;
-    while (iter < m) && (norm(z0 - zn, %inf) > eps)
-        z0 = zn;
-        
+    iter = 1
+    while (iter < max_iter) && (norm(z0 - autovector, %inf) > eps)
+        z0 = autovector
+
         // Calculo wn
-        w = A * z0;
-        
+        w = A * z0
+
         // Elijo una componente no nula de wn
-        [m, j] = max(abs(w));
+        [valor_max, j] = max(abs(w))
 
         // Calculo ln
-        l = w(j) / z0(j);
-        
+        autovalor = w(j) / z0(j)
+
         // Normalizo y obtengo zn
-        zn = w / l;
-        
-        iter = iter + 1;
+        autovector = w / autovalor
+
+        iter = iter + 1
     end
-    disp('Cantidad de iteraciones:');
-    disp(iter);
+    printf("Cantidad de iteraciones: %i\n", iter)
 endfunction
 
+
+// ============================================================================
+// Ejemplos
+// ============================================================================
+A = [12 1 3 4; 1 -3 1 5; 3 1 6 -2; 4 5 -2 1]
+[autovalor, autovector] = mpotencia(A, [1 2 3 4]', %eps, 22000)
+disp("Autovalor dominante:")
+disp(autovalor)
+disp("Autovector:")
+disp(autovector)
+
+A2 = [2 -1 0; -1 2 -1; 0 -1 2]
+[autovalor2, autovector2] = mpotencia(A2, [1 1 1]', %eps, 1000)
+disp("Autovalor dominante:")
+disp(autovalor2)
+disp("Autovector:")
+disp(autovector2)
