@@ -1,0 +1,25 @@
+(Método de la Secante) ¿Qué problema busca resolver? ; Encontrar una aproximación de una raíz \(\alpha\) tal que \(f(\alpha)=0\).
+(Método de la Secante) ¿Qué idea geométrica utiliza? ; La intersección con el eje \(x\) de la recta secante que pasa por \((x_{n-1},f(x_{n-1}))\) y \((x_n,f(x_n))\).
+(Método de la Secante) ¿Qué datos iniciales necesita? ; Dos aproximaciones iniciales \(x_0\) y \(x_1\).
+(Método de la Secante) ¿Cómo se aproxima la derivada? ; Mediante la diferencia finita \(\dfrac{f(x_n)-f(x_{n-1})}{x_n-x_{n-1}}\).
+(Método de la Secante) ¿Cómo se obtiene la siguiente aproximación \(x_{n+1}\)? ; Como la raíz de la recta secante.
+(Método de la Secante) Fórmula general de iteración. ; \(x_{n+1} = x_n - f(x_n)\dfrac{x_n-x_{n-1}}{f(x_n)-f(x_{n-1})}\).
+(Método de la Secante) ¿Qué interpretación geométrica tiene \(x_{n+1}\)? ; Es el corte con el eje \(x\) de la secante entre los puntos en \(x_{n-1}\) y \(x_n\).
+(Método de la Secante) ¿Por qué se dice que aproxima al método de Newton? ; Porque reemplaza \(f'(x_n)\) por una pendiente calculada con dos puntos.
+(Método de la Secante) ¿Cuántas evaluaciones nuevas de \(f\) requiere por iteración? ; Una.
+(Método de la Secante) ¿Qué puede ocurrir si \(f(x_n) \approx f(x_{n-1})\)? ; El denominador se hace pequeño y el método se vuelve inestable.
+(Método de la Secante) Completar: \(x_{n+1} = x_n - \_\_\_\_\). ; \(f(x_n)\dfrac{x_n-x_{n-1}}{f(x_n)-f(x_{n-1})}\).
+(Método de la Secante) Completar: \(f'(x_n) \approx \_\_\_\_\). ; \(\dfrac{f(x_n)-f(x_{n-1})}{x_n-x_{n-1}}\).
+(Método de la Secante) ¿Es un método de uno o dos puntos? ; De dos puntos.
+(Método de la Secante) ¿Requiere conocer la derivada explícitamente? ; No.
+(Método de la Secante) En el análisis del error se obtiene: \(\alpha-x_{n+1} = \_\_\_\_\). ; \((\alpha-x_n)(\alpha-x_{n-1})\left[-\dfrac{f''(\xi_n)}{2f'(\rho_n)}\right]\).
+(Método de la Secante) En el análisis del error, ¿dónde se encuentra \(\xi_n\)? ; Entre el mínimo y el máximo de \(x_{n-1}, x_n\) y \(\alpha\).
+(Método de la Secante) En el análisis del error, ¿dónde se encuentra \(\rho_n\)? ; Entre \(x_{n-1}\) y \(x_n\).
+(Método de la Secante) Si converge y \(f'(\alpha)\neq 0\), ¿qué orden de convergencia tiene? ; Superlineal.
+(Método de la Secante) Valor de \(p\) en el orden de convergencia. ; \(p=\dfrac{\sqrt{5}+1}{2}\).
+(Método de la Secante) Aproximadamente, ¿cuánto vale \(p\)? ; \(p \approx 1.62\).
+(Método de la Secante) Completar: \(\lim \dfrac{|\alpha-x_{n+1}|}{|\alpha-x_n|^p} = \_\_\_\_\). ; \(\left|\dfrac{f''(\alpha)}{2f'(\alpha)}\right|^{p-1}\).
+(Método de la Secante) ¿Es más rápido o más lento que Newton? ; Más lento que Newton.
+(Método de la Secante) Ventaja principal frente a Newton. ; No necesita derivadas.
+(Método de la Secante) Desventaja importante. ; Puede no converger.
+(Método de la Secante) Si estoy cerca de la raíz, ¿cómo disminuye el error? ; Más rápido que lineal pero más lento que cuadrático.
