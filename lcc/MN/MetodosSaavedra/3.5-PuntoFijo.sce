@@ -28,6 +28,27 @@ endfunction
 
 
 // ============================================================================
+// Derivadas comunes
+// ============================================================================
+// Potencias y raices:
+//   d/dx [x^n]       = n * x^(n-1)
+//   d/dx [sqrt(x)]   = 1 / (2*sqrt(x))
+//   d/dx [1/x]       = -1 / x^2
+//
+// Exponencial y logaritmo:
+//   d/dx [e^x]       = e^x
+//   d/dx [a^x]       = a^x * log(a)
+//   d/dx [log(x)]    = 1 / x           (log natural)
+//   d/dx [log_a(x)]  = 1 / (x * log(a))
+//
+// Trigonometricas:
+//   d/dx [sin(x)]    = cos(x)
+//   d/dx [cos(x)]    = -sin(x)
+//   d/dx [tan(x)]    = 1 / cos(x)^2   = sec(x)^2
+//   d/dx [cot(x)]    = -1 / sin(x)^2  = -csc(x)^2
+
+
+// ============================================================================
 // Regla de la cadena (para verificar convergencia o construir derivadas)
 // ============================================================================
 // Si tenemos h(x) = f(g(x)), su derivada es:
