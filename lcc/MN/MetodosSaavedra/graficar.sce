@@ -45,7 +45,7 @@ function graficar(f, x_pts, y_pts, a, b)
 
     plot(x_pts, y_pts, 'ro', 'markersize', 8, 'markerfacecolor', 'r')
 
-    legend([leg; "Puntos"])  // antes de xgrid para que no interfiera
+    legend([leg; "Puntos"])
     xgrid()
 endfunction
 

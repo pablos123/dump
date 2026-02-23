@@ -80,6 +80,13 @@ function A = evaluar_matriz_polinomios_minimos_cuadrados(x, M)
 endfunction
 
 
+// Resuelve el sistema de minimos cuadrados dado una matriz A y vector b.
+// Arma y resuelve el sistema normal A'*A*y = A'*b.
+//
+// Parametros:
+//   A - matriz del sistema (puede ser no cuadrada)
+//   b - vector de terminos independientes
+// Devuelve: vector de coeficientes que minimiza ||A*y - b||
 function y = resolver_minimos_cuadrados_generico(A, b)
     y = mgaussPP(A' * A, A' * b)
 endfunction
