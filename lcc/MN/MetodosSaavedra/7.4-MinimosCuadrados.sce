@@ -29,9 +29,7 @@ function coeficientes = minimos_cuadrados_polinomio_coeficientes(x, b, m)
         A(:, i) = A(:, i - 1) .* x'
     end
 
-    At = A'
-
-    coeficientes = mgaussPP(At * A, At * b')
+    coeficientes = mgaussPP(A' * A, A' * b')
 endfunction
 
 
@@ -81,6 +79,10 @@ function A = evaluar_matriz_polinomios_minimos_cuadrados(x, M)
     end
 endfunction
 
+
+function y = resolver_minimos_cuadrados_generico(A, b)
+    y = mgaussPP(A' * A, A' * b)
+endfunction
 
 // ============================================================================
 // Ejemplos
