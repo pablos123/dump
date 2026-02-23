@@ -17,7 +17,7 @@ funcprot(0)
 function raiz = metodo_newton(f, df, x0, eps, max_iter)
     x1 = x0 - f(x0) / df(x0)
 
-    iter = 0
+    iter = 1
     while abs(x1 - x0) > eps && iter < max_iter
         x0 = x1
         x1 = x0 - f(x0) / df(x0)
@@ -41,7 +41,7 @@ endfunction
 function raiz = metodo_newton_vectorial(f, inv_jacobiano, x0, eps, max_iter)
     x1 = x0 - inv_jacobiano(x0) * f(x0)
 
-    iter = 0
+    iter = 1
     while norm(x1 - x0, 2) > eps && iter < max_iter
         x0 = x1
         x1 = x0 - inv_jacobiano(x0) * f(x0)

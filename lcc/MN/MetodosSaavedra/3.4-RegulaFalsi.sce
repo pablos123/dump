@@ -21,7 +21,7 @@ function raiz = metodo_regulafalsi(f, a, b, eps, max_iter)
 
     c = b - fb * (b - a) / (fb - fa)
 
-    iter = 0
+    iter = 1
     while (b - c) > eps && iter < max_iter
         fc = f(c)
         if fb * fc <= 0

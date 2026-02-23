@@ -39,7 +39,7 @@ function raiz = metodo_secante(f, x0, x1, eps, max_iter)
 
     x2 = x1 - fx1 * (x1 - x0) / (fx1 - f(x0))
 
-    iter = 0
+    iter = 1
     while abs(x1 - x2) > eps && iter < max_iter
         x0 = x1
         x1 = x2
