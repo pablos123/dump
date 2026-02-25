@@ -18,20 +18,18 @@ funcprot(0)
 function raiz = metodo_regulafalsi(f, a, b, eps, max_iter)
     fb = f(b)
     fa = f(a)
-
+    c_prev = b
     c = b - fb * (b - a) / (fb - fa)
 
     iter = 1
-    while (b - c) > eps && iter < max_iter
+    while abs(c - c_prev) > eps && iter < max_iter
+        c_prev = c
         fc = f(c)
         if fb * fc <= 0
-            a = c
-            fa = fc
+            a = c;  fa = fc
         else
-            b = c
-            fb = fc
+            b = c;  fb = fc
         end
-
         c = b - fb * (b - a) / (fb - fa)
         iter = iter + 1
     end

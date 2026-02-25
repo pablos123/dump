@@ -8,18 +8,19 @@ funcprot(0)
 //
 // Parametros:
 //   f   - funcion continua
-//   x0  - primera aproximacion
-//   x1  - segunda aproximacion
+//   a   - primera aproximacion
+//   b   - segunda aproximacion
+//   fa  - f(a)
+//   fb  - f(b)
 //   eps - tolerancia del error
 // Devuelve: aproximacion de la raiz
-function raiz = secante_recursivo(f, x0, x1, eps)
-    fx1 = f(x1)
-    x2 = x1 - fx1 * (x1 - x0) / (fx1 - f(x0))
+function raiz = secante_recursivo(f, a, b, fa, fb, eps)
+    c = b - fb * (b - a) / (fb - fa)
 
-    if abs(x1 - x2) <= eps then
-        raiz = x2
+    if abs(b - c) <= eps then
+        raiz = c
     else
-        raiz = secante_recursivo(f, x1, x2, eps)
+        raiz = secante_recursivo(f, b, c, fb, f(c), eps)
     end
 endfunction
 
@@ -29,29 +30,25 @@ endfunction
 //
 // Parametros:
 //   f        - funcion continua
-//   x0       - primera aproximacion
-//   x1       - segunda aproximacion
+//   a        - primera aproximacion
+//   b        - segunda aproximacion
 //   eps      - tolerancia del error
 //   max_iter - maximo de iteraciones
 // Devuelve: aproximacion de la raiz
-function raiz = metodo_secante(f, x0, x1, eps, max_iter)
-    fx1 = f(x1)
-
-    x2 = x1 - fx1 * (x1 - x0) / (fx1 - f(x0))
+function raiz = metodo_secante(f, a, b, eps, max_iter)
+    fa = f(a)
+    fb = f(b)
+    c = b - fb * (b - a) / (fb - fa)
 
     iter = 1
-    while abs(x1 - x2) > eps && iter < max_iter
-        x0 = x1
-        x1 = x2
-
-        fx1 = f(x1)
-
-        x2 = x1 - fx1 * (x1 - x0) / (fx1 - f(x0))
-
+    while abs(b - c) > eps && iter < max_iter
+        a = b;  fa = fb
+        b = c;  fb = f(c)
+        c = b - fb * (b - a) / (fb - fa)
         iter = iter + 1
     end
 
-    raiz = x2
+    raiz = c
 endfunction
 
 
@@ -62,5 +59,5 @@ deff("y = f(x)", "y = x^3 - x - 2")
 raiz = metodo_secante(f, 1, 2, 1e-6, 100)
 disp("Secante iterativa: raiz = " + string(raiz))
 
-raiz_rec = secante_recursivo(f, 1, 2, 1e-6)
+raiz_rec = secante_recursivo(f, 1, 2, f(1), f(2), 1e-6)
 disp("Secante recursiva: raiz = " + string(raiz_rec))
