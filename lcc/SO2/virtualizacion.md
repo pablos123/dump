@@ -17,7 +17,7 @@ No solo los SO pueden virtualizarse sino tambien, por ejemplo, la memoria o las 
 Son todas las instrucciones que acceden directamente al hardware e la computadora (fuera de la memoria y el ALU). Generalmente sólo puede ejecutarlas el SO pues requieren privilegios especiales.
 Para poder virtualizar una computadora es necesario que el SO huésped se ejecute enteramente en modo usuario: en caso contrario apareceran todo tipo de conflictos (al intentar utilizar puertos, discos rígidos, interrupciones, etc). Cuando un SO quiere ejecutar una operación sensible, se debería saltar a modo kernel.
 
-__La arquitectura de las computadoras 386 y sus derivadas no hacían esto hasta el 2005: algunas instrucciones sensibles simplemente se ignoraban si se ejecutaban en modo usuario. Por lo tanto, no podían usarse hipervisores para estas arquitecturas, sólo emuladores.__
+**La arquitectura de las computadoras 386 y sus derivadas no hacían esto hasta el 2005: algunas instrucciones sensibles simplemente se ignoraban si se ejecutaban en modo usuario. Por lo tanto, no podían usarse hipervisores para estas arquitecturas, sólo emuladores.**
 
 ## Hipervisores
 
@@ -36,4 +36,4 @@ Cada bloque es un conjunto de instrucciones que no son ni saltos ni instruccione
 ## Paravirtualización
 
 Es posible modificar el código fuente de muchos SO para que se ejecuten sobre un hipervisor específico. La idea es que el hipervisor provea una API para acceder al hardware simulado, y que el SO huésped sea modificado para hacer uso de esta API en vez de llamar a operaciones I/O. De esta manera se hace más sencillo escribir hipervisores, también se hace más rápida la ejecución del SO huésped.
-__Un hipervisor de paravirtualización es prácticamente un microkernel que ejecuta SO huéspedes como procesos.__
+**Un hipervisor de paravirtualización es prácticamente un microkernel que ejecuta SO huéspedes como procesos.**

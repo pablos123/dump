@@ -9,10 +9,8 @@ Un sistema de archivos sirve para gestionar información persistente. Debe permi
 
 ## TAR (UNIX)
 
-!
-
 Ventajas:
-\- Simple
+- Simple
 
 Desventajas:
 
@@ -23,8 +21,6 @@ Desventajas:
 ## Commodore-64
 
 Trató de concentrar la metadata.
-
-!
 
 Ventajas:
 
@@ -39,11 +35,10 @@ Desventajas:
 
 ## Questar/MFS
 
-Trató de permitir la gragmentación de archivos.
-!
+Trató de permitir la fragmentación de archivos.
 
 Problema: fragmentación acotada.
-En este esquema un subdirectorio es simplemente un archivo solo que sus gragmentos son dir entries.
+En este esquema un subdirectorio es simplemente un archivo solo que sus fragmentos son dir entries.
 
 ## MSDOS (FAT)
 
@@ -51,8 +46,6 @@ Se basa en unificar dos aspectos:
 
 - Gestión del espacio libre
 - Permitir gestionar la fragmentación arbitraria
-
-!
 
 Ventajas:
 
@@ -68,11 +61,7 @@ Desventajas:
 
 ## UNIX
 
-!
-
 El sector lógico de un i-node (information node) es de 512 bytes (coincide con el sector físico) y tiene:
-
-!
 
 ## Berkeley Software Distribution (BSD)
 
@@ -89,15 +78,15 @@ BSD planteó un sector lógico distinto del físico. El sector lógico de BSD er
 ### Mejorando los movimientos del disco
 
 Teniendo en cuenta que un disco tiene dos tipos de moviemientos:
-\- Rotación de platos (angular)
-\- Cabezal (radial)
+- Rotación de platos (angular)
+- Cabezal (radial)
 
 **Mejorando el rendimiento angular**
 
 Puedo optimizarlos. Se puede acelerar el acceso a un disco no poninendo dos sectores seguidos.
 Si quiero leer 1 y 2 y están pegados quizás termino de leer 1 y quiero leer 2 pero me pase entonces tengo que esperar que el disco de toda la vuelta. En cambio si 2 no está pegado a 1 no tengo que esperar eso. Esto minimiza la cantidad de revoluciones para leer.
 
-\*\*Mejorando el rendimiento radial \*\*
+**Mejorando el rendimiento radial**
 
 Para mejorar el rendimiento del moviemiento radial se usa el **algoritmo del ascensor**: recolectar pedidos de lectura/escritura y reodenarlos de modo de no har más de una o dos pasadas. Es óptimo excepto que requiere que los pedidos de lectura/escritura sean independientes.
 Es decir, al inicio el cabezal está detenido. Al llegar la primer petición va una dirección. Cada pedido que lega se va cumpliendo en el orden en que aparecen en el recorrido del cabezal hasta el final del recorrido, luego se empieza el recorrido inverso y se responden los de esa dirección y así sucesivamente.
@@ -132,4 +121,4 @@ Journaling baja la performance pero aumenta la seguridad.
 
 # Bibliography
 
-https://web.cs.ucla.edu/classes/spring12/cs111/scribe/12a/
+[UCLA CS111 – File Systems](https://web.cs.ucla.edu/classes/spring12/cs111/scribe/12a/)
