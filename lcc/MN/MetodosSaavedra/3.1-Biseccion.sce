@@ -46,7 +46,7 @@ function raiz = metodo_biseccion(f, a, b, eps, max_iter)
 
     fb = f(b)
 
-    iter = 0
+    iter = 1
     while (b - c) > eps && iter < max_iter
         fc = f(c)
         if fb * fc <= 0

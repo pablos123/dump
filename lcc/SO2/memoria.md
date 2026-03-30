@@ -23,8 +23,6 @@ La MMU cubre estas necesidades, y es también la encargada de verificar que un p
 
 Una primera aproximación a la protección de acceso se implementa usando un _registro base_ y un _registro límite_: si la arquitectura ofrece dos registros dle procesador que sólo pueden ser modificados por el SO (el hardware define la modificación de dichos registros como una operación para ejecutar en _modo supervisor_), la MMU puede comparar sin penalidad cada acceso a memoria para verificar que esté en el rango permitido.
 
-!
-
 ## Caché
 
 Cuando el procesador solicita el contenido de una dirección de memoria y esta no está aún disponible, tiene que detener su ejecución (_stall_) hasta que los datos estén disponibles. **El CPU no puede, a diferencia del sistema operativo, "congelar" todo y guardar el estado para atender otro proceso: para el procesador, la lista de instruccinoes a ejecutar es estrictamente secuecial, y todo tiempo que requiere esperar una transferencia de datos es tiempo perdido.**
@@ -38,8 +36,6 @@ Aplicando el concepto de localidad de referencia, cuando el procesador solicita 
 
 ## Espacio en memoria de un proceso
 
-!
-
 ## Resolución de direcciones
 
 Un programa compilado no emplea nombres sibólicos para las variables o funciones que llama. (No hay diferencia real entre la dirección que ocupa una variable o código ejecutable. La diferencia se establece por el uso que se dé a la referencia de memoria.) El compilador al convertir el programa a lenguaje de máquina, las sustituye por la dirección en memoria donde se encuentra la variable o la función.
@@ -48,8 +44,6 @@ En los sistemas actuales, los procesos requieren coexistir con otros, para lo cu
 - **En tiempo de compilación**: el texto del programa tiene la dirección absoluta de las variables y funciones. Ya no se usa, se ve en sistemas embebidos.
 - **En tiempo de carga**: al cargarse a memoria el programa y antes de iniciar su ejecución, el cargar (componente del SO) actualiza las referencias a memoria dentro del texto para que apunten correctamente.
 - **En tiempo de ejecución**: el programa nunca hace referencia a una ubicación absoluta de memoria, sino que lo hace siempre relativo a una _base_ y un _desplazamiento (offset)_. Esto permite que el proceso sea incluso **reubicado en la memoria** mientras está siendo ejecutado, sin sufrir cambios (**requiere una MMU**).
-
-!
 
 # Asignación de memoria continua
 
@@ -97,13 +91,9 @@ Esta técnica ya no es muy utilizada, dado el tamaño de los procesos y la lenti
 La segmentación es un concepto que se aplica directamente a la arquitectura del procesador. Permite separar las regiones de la memoria _lineal_ en _segmentos_, cada uno de los cuales puede tener diferentes permisos de acceso. La segmentación ayuda a incrementar la _modularidad_ de un programa: es muy común que las biblitecas _ligadas dinámicamente_ estén representadas en segmentos independientes.
 Un código compilado para procesadores que implementen segmentación siempre generará referencias a la memoria en un espacio _segmentado_. Este tipo de referencias se denominan direcciones lógicas y están formadas por un _selector_ de segmento y un _desplazamiento_ dentro del segmento. La MMU debe tomar el selector, y usando alguna estructura de datos, obtiene la dirección base, el tamaño del segmento y sus atributos de protección. Luego toma la dirección base le suma el desplazamiento y obtiene la **dirección física**.
 
-!
-
 ## Permisos
 
 La segmentación también permite distinguir niveles de acceso a la memoria: para que un proceso pueda efectuar llamadas al sistema, debe tener acceso a determinadas estructuras compartidas del núcleo. Su acceso requiere que el procesador esté ejecutando en _modo supervisor_.
-
-!
 
 En caso de haber más de una excepción, como se observa en la solicitud
 de lectura de la dirección 3-132, el sistema debe reaccionar primero a la
@@ -145,14 +135,10 @@ Para ofrecer este modelo, el sistema operativo debe garantizar que las páginas 
 
 > Un programa que está compilado de forma que permita que todo su código sea de sólo lectura posibilita que diversos procesos entren a su espacio en memoria sin tener que sincronizarse con otros procesos que lo estén empleando.
 
-!
-
 ## CoW (copy on write)
 
 El mecanismo más frecuentemente utilizado para crear un nuevo proceso es el empleo de fork(). Este método es incluso utilizado normalmente para crear nuevos procesos, transifiriendo el ambiente (variables, por ejemplo, que incluyen cuál es la entrada y salida estándar). Gracias a la memoria compartida el costo de fork() en un sistema Unix es muy bajo, se limita a crear las estructuras necesarias en la memoria del núcleo. Tanto **el proceso padre como el proceso hijo comparten todas sus páginas de memoria**, sin embargo, siendo dos procesos independientes, **no deben poder modificarse más que por los canales explícitos de comunicación entre procesos (IPC)**. Esto ocurre así gracias al mecanismo **CoW**. Las páginas de memoria de ambos procesos **son las mismas mientras sean sólo leídas**. Sin embargo, si uno de los procesos modifica cualquier dato en una de estas páginas, esta se copia a un nuevo marco, y deja de ser una página compartida. El resto de las páginas seguirá siendo compartida.
 Esto se puede lograr marcando todas las páginas compartidas como _sólo lectura_, con lo cual cuando uno de los dos procesos intente modificar la información de alguna página se generará un fallo. El sistema operativo, al notar que esto ocurre sobre un espacio CoW, en vez de responder al fallo terminando al proceso, copiará sólo la página en la cual se encuentra la dirección de memoria que causó el fallo, y esta vez marcará la página como _lectura y escritura_.
-
-!
 
 ## Demand Loading
 
@@ -204,7 +190,9 @@ Se basan en mantener un contador, tal como lo hace $LRU$, pero en vez de medir t
 
 - $MFU$: si una página fue empleada muchas veces, probablemente vuelva a ser empleada muchas veces más
 - $LFU$: si una página fue empleada pocas veces, es probablemente una página recién cargada, y va a ser empleada en el futuro cercano.
-  Características:
+
+Características:
+
 - Son caros de implementar como $LRU$
 - No tienen un rendimiento tan cercano a $OPT$
 - No son utilizados
@@ -332,8 +320,6 @@ Una solución sería reducir el nivel de multiprogramación. Podría seleccionar
 
 El sistema operativo debe decidir qué porción de la memoria física asigna a memoria interna del núcleo (en donde habrá buffers, datos y el código mismo del núcleo) y qué porción será asignada dinámicamente (memoria dinámica del **sistema**) para procesos y cachés. Además hay porciones de memoria **reservadas** por el hardware o para uso específico del hardware y que el núcleo **no** puede utilizar libremente (dispositivos mapeados en memoria, vectores de interrupciones, etc), la configuración exacta depende de la arquitectura del hardware, en los x86 GNU/Linux se utiliza la siguiente disposición:
 
-!
-
 - Reservado para el hardware. (Configuración de hardware detectada durante el POST (Power On Self Test))
 - Disponible para memoria dinámica.
 - Reservado para el hardware (dispositivos mapeados a memoria y rutinas de bios).
@@ -363,8 +349,6 @@ GNU/Linux utiliza paginación en los espacios de direcciones de los procesos, ha
 
 Por estas razones, se emplea un método muy conocido para hacer el seguimiento de la memoria libre: el **buddy system**. La información sobre los bloques de memoria libre se guarda en una estructura de datos que puede verse como un arreglo de listas. Los bloques de memoria libre se agrupan en potencias de dos, al elemento 0 del arreglo le corresponde la información sobre huecos de tamaó de una página, la lista en el elemento 1 tiene información de huecos de 2 páginas, etc. GNU/Linux utiliza 11 potencias de dos, así los huecos más grandes tienen $2^{11}$ páginas.
 
-!
-
 Cuando se necesita asignar un bloque contifuo de memoria se busca el primer hueco lo suficientemente grande como para satisfacer el pedido. Si se necesita partir un hueco grande, se asigna lo necesario y el espacio restante se añade a las listas correspondientes.
 Los opuesto ocurre cuando se libera una porción de memoria: en este caso se añaden los huecos a las listas correspondientes. Si en una lista quedan dos bloques "colegas" (vecinos en memoria y alineados al siguiente tamaño más grande), esos dos bloques pueden fundirse para formar un nuevo bloque más grande.
 **De esta manera se soluciona el problema de la fragmentación externa**
@@ -380,8 +364,6 @@ La memoria RAM se asigna indistintamente a procesos y a caché. Todos pueden cre
 ¿Qué ocurre cuando la memoria se llena?
 Antes de que se llene, el _algoritmo de reclamo de marcos del núcleo (page frame reclaiming algorithm - PFRA -)_ se encarga de rellenar la lista de bloques libre "robando" marcos de procesos (en modo usuario) y de los cachés del núcleo. Esto se debe hacer antes de que la memoria se agote completamente pues para escribir los datos en disco (si hace falta) se necesitan también algunas páginas de memoria. Esto es: **el algoritmo de reclamo de marcos conserva un pool de marcos libres mínimo**.
 El algoritmo manea los marcos de diferente manera según su contenido:
-
-!
 
 - Hay páginas que pueden estar _bloqueadas en memoria_. este bloqueo puede ser temporal (ej. entrada/salida o sección critica del núcleo) o permanente (ej. pedido explícito del proceso).
 - Las páginas _anónimas_ son aquellas que forman parte del espacio de memoria virtual de un proceso (segmento de código, datos, etc) y no contienen datos provenientes de archivos (librerías, archivos map en memoria, etc).

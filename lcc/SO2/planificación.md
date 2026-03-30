@@ -15,8 +15,6 @@ En los sistemas de uso interactivo, casi la totalidad de los que se usan hoy en 
 Decide qué procesos es conveniente bloquear en terminado momento, sea por escasez/saturación de algún recurso (como la memoria primaria) o porque están realizando alguna solicitud que no puede satisfacerse.
 Se encarga de tomar decisiones respecto a los procesos conforme entran y salen del estado de **bloqueado**. Típicamente, están a la espera de algún evento externo o de la finalización de transferencia de datos con algún dispositivo.
 
-!
-
 #### **A corto plazo** (Dispatcher):
 
 Decide cómo compartir momento a momento el equipo entre todos los procesos que requieren de sus recursos, especialmente el procesador.
@@ -25,8 +23,6 @@ Tiene que ser código muy simple eficiente y rápido.
 Es el encargado de planificar los **procesos que está listos para la ejecución**.
 
 ### Ubicación de planificadores
-
-!
 
 1. El planificador a largo plazo se encarga de admitir un nuevo proceso: la transición **de nuevo a listo**.
 1. El planificador a mediano plazo maneja la activación y bloqueo de un proceso relacionado con eventos, esto es, la transiciones entre **en ejecución y bloqueado** y entre **bloqueado y listo**.
@@ -109,15 +105,11 @@ Un sistema que opera bajo multitarea apropiativa implementará también el segun
 
 Este es un **mecanismo cooperativo**, con la mínima lógica posible: cada proceso **se ejecuta en el order en que fue llegando, y hasta que suelta el control**.
 
-!
-
 ## Ronda (Round Robin)
 
 El esquema ronda **busca dar una relación de respuesta buena, tanto para procesos largos como para los cortos**.
 
 **La principal diferencia entre la ronda y FCFS es que en este caso sí emplea multitarea apropiativa**: cada proceso que esté en la lista de procesos listos puede ejecutarse por un sólo quantum. Si un proceso no ha terimnado de ejecutar al final de sus quantum, será interrumpido y puesto al final de la lista de procesos listos, para que espere a su turno nuevamente. Los procesos que sean despertados por los planificadores a mediano o largo plazo se agregarán también al final de esta lista.
-
-!
 
 El procesador simulado sería cada vez más lento, dada la fuerte penalización que iría agregando la sobrecarga administrativa.
 
@@ -131,8 +123,6 @@ Igualmente la ronda puede ser ajustada modificando la duración del tiempo de es
 
 Cuando no se tiene la posiblidad de implementar multitarea apropiativa, pero se requiere de un algoritmo más justo, contando con información por anticipado acerca del tiempo que requieren los procesos que forman la lista, puede elegirse el más corto de los presentes.
 Ahora bien, es muy difícil contar con esta información antes de ejecutar el proceso. Es más frecuente buscar caracterizar las necesidades del proceso: ver si durante su historia de ejecución ha sido un proceso tendiente a manejar ráfagas limitadas por entrada-salida o limitadas por procesador y cuál es su tendencia actual.
-
-!
 
 ### SPN apropiativo (PSPN, preemptive shortest process next)
 
@@ -149,8 +139,6 @@ Este método busca favorecer los procesos que ya han pasado tiempo ejecutando qu
 
 Para SRR se emplean los parámetros _a_ y _b_, ajustables según las necesidades del sistema. _a_ indica el ritmo según el cual se incrementará la prioridad de los procesos de la cola de procesos nuevos, y _b_ el ritmo del incremento de prioridad para los procesos aceptados. Cuando la prioridad de un proceso nuevo alcanza a la prioridad de un proceso aceptado, el nuevo se vuelve aceptado. Si la cola de procesos aceptados queda vacía, se acepta el proceso nuevo con mayor prioridad.
 
-!
-
 - Si b < a, la prioridad de un proceso entrante eventualmente alcanzará a la de los procesos aceptados y comenzará a ejecutarse. Mientras el control va alternando entre dos o más procesos, la prioridad de todos ellos será la misma (esto es, son despachados efectivamente por una simple ronda).
 - Si b >= a, el proceso en ejecución terminará y otro será aceptado. En este caso, este esquema se convierte en FCFS.
 - Si b = 0, los procesos recién llegados serán aceptados inmediatamente, con lo cual se convierte en una ronda.
@@ -159,8 +147,6 @@ Para SRR se emplean los parámetros _a_ y _b_, ajustables según las necesidades
 
 La ronda egoísta introduce el concepto de tener no una sino varias colas de procesos, que recibirán diferente tratamiento.
 **Este mecanismo es muy poderoso y se emplea en prácticamente todos los planificadores en uso hoy en día**.
-
-!
 
 ## Lotería
 
@@ -174,5 +160,3 @@ Podemos clasificar los algoritmos sobre dos discriminadores primarios:
 
 - Si están pensados para emplearse en multitarea cooperativa o apropiativa.
 - Si emplean información intrínseca a los procesos evaluados o no lo hacen, es es, si un proceso es tratado de distinta forma dependiendo de su historial de ejecución.
-
-!

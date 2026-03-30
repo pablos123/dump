@@ -65,6 +65,33 @@ function y = radio_espectral_tj(A)
 endfunction
 
 
+// Descompone la matriz A en A = L + D + U, donde:
+//   L - parte triangular estrictamente inferior
+//   D - parte diagonal
+//   U - parte triangular estrictamente superior
+//
+// Parametros:
+//   A - matriz de coeficientes
+// Devuelve: [L, D, U]
+function [L, D, U] = descomposicion_ldu(A)
+    n = size(A, 1)
+    L = zeros(n, n)
+    D = zeros(n, n)
+    U = zeros(n, n)
+    for i = 1:n
+        for j = 1:n
+            if j < i then
+                L(i, j) = A(i, j)
+            elseif j == i then
+                D(i, j) = A(i, j)
+            else
+                U(i, j) = A(i, j)
+            end
+        end
+    end
+endfunction
+
+
 // ============================================================================
 // Ejemplos
 // ============================================================================

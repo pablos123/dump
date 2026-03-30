@@ -14,5 +14,9 @@ mkdir -p "${HOME}/bin/"
 [[ ! -d "${scilab_dir_path}" ]] &&
     tar -xf "${scilab_tar_path}" -C "${HOME}/bin/"
 
-ln -fs "${scilab_dir_path}/bin/scilab" "${HOME}/bin/scilab"
+echo "#!/usr/bin/env bash
+JAVA_TOOL_OPTIONS='-Djogl.disable.openglcore=false' ${scilab_dir_path}/bin/scilab" > "${HOME}/bin/scilab"
+
+chmod +x "${HOME}/bin/scilab"
+
 ln -fs "${scilab_dir_path}/bin/scilab-cli" "${HOME}/bin/scilab-cli"
