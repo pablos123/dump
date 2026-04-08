@@ -1,5 +1,6 @@
 *.out
 *.o
+*.hi
 *build
 *.pls_cache
 *.obsidian
@@ -11,6 +12,7 @@
 *.jpg
 *.png
 main
+compiled
 a
 sws
 config/config
