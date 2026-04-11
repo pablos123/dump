@@ -1,4 +1,5 @@
 import Data.List
+import Data.Char
 
 -- Ejercicios de teoría.
 is_even :: Int -> Bool
@@ -38,9 +39,9 @@ test f x = f x == x + 2
 showme :: Show a => a -> String
 showme x = show x
 
+testing :: a -> (b -> b)
+testing x = \x -> x
 
-testinggg :: Num b => a -> b
-testinggg x = 1
 
 main = do
     -- Teoría
@@ -52,5 +53,8 @@ main = do
 
     -- Práctica 1
     putStrLn $ show $ test sum_two 2
+    putStrLn $ show $ testing 'a' 2
+    putStrLn $ show $ (\x -> x + 1) 3
 
-    putStrLn $ show $ test sum_three 2
+    putStrLn $ show $ zip [1,2] [3,4]
+
