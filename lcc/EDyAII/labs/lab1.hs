@@ -1,8 +1,6 @@
-module Lab01 where
+-- module Lab01 where
 
-import Data.Binary (encode)
 import Data.List
-import Distribution.Parsec.FieldLineStream (fieldLineStreamFromString)
 
 {-
 1) Corregir los siguientes programas de modo que sean aceptados por GHCi.
@@ -32,7 +30,8 @@ not' = not
 -- in []          =  error "empty list"
 inside :: [a] -> [a]
 inside [x] = []
-inside (x : xs) = x : inside xs
+inside [x, y] = []
+inside (x : xs) = head xs : inside xs
 inside [] = error "empty list"
 
 -- c)
@@ -49,7 +48,7 @@ len (_ : l) = 1 + len l
 -- : espera una lista, estoy pasando ([])
 --
 -- list123 = (1 : 2) : 3 : []
-list123 = [1, 2, 3]
+-- list123 = [1, 2, 3]
 
 -- e)
 -- : probablemente tenga más precedencia que ++!
@@ -60,7 +59,7 @@ list123 = [1, 2, 3]
 -- f)
 addToTail :: (Num a) => a -> [a] -> [a]
 addToTail _ [x] = [x]
-addToTail x (l : ls) = map (+ x) ls
+addToTail x (l : ls) = l : map (+ x) ls
 addToTail _ [] = []
 
 -- g)
@@ -72,6 +71,7 @@ addToTail _ [] = []
 -- listMin xs = head . sort xs
 -- listMin xs = (head . sort) xs
 -- listMin xs = minimum xs
+listMin :: (Ord a) => [a] -> a
 listMin = minimum
 
 -- h) (*)
@@ -113,6 +113,18 @@ j) max3, que toma tres números enteros y devuelve el máximo entre llos
 k) swap, que toma un par y devuelve el par con sus componentes invertidas
 -}
 
+five :: a -> Int
+five _ = 5
+
+apply :: (a -> b) -> a -> b
+apply f x = f x
+
+ident :: a -> a
+ident x = x
+
+first :: (a, b) -> a
+first (a, b) = a
+
 {-
 3) Definir una función que determine si un año es bisiesto o no, de
 acuerdo a la siguiente definición:
@@ -140,7 +152,7 @@ expresión sea válida:
 
 -}
 
-v = [1, 2, 3] *$ 2 *$ 4
+-- v = [1, 2, 3] *$ 2 *$ 4
 
 {-
 5) Definir las siguientes funciones usando listas por comprensión:
@@ -159,8 +171,8 @@ donde 0 <= a, b, c, d <= 'n'
 'xs' sin elementos repetidos
 -}
 
-unique :: [Int] -> [Int]
-unique xs = [x | (x, i) <- zip xs [0 ..], not (elem x (take i xs))]
+-- unique :: [Int] -> [Int]
+-- unique xs = [x | (x, i) <- zip xs [0 ..], not (elem x (take i xs))]
 
 {-
 6) El producto escalar de dos listas de enteros de igual longitud
@@ -210,3 +222,13 @@ lista de aquellos que son letras (minúsculas o mayúsculas)
 k) 'masDe', que dada una lista de listas 'xss' y un
 número 'n', devuelve la lista de aquellas listas de 'xss'
 con longitud mayor que 'n' -}
+
+main :: IO ()
+main = do
+  -- a
+  print (not' False)
+  print (inside [1, 2, 3, 4])
+  print (inside [1, 2])
+  print (len [1, 2])
+  print (addToTail 3 [1, 2, 3])
+  print (listMin [1, 2, 0, 3])
