@@ -1,7 +1,5 @@
 -- module Lab01 where
 
-import Data.List
-
 {-
 1) Corregir los siguientes programas de modo que sean aceptados por GHCi.
 -}
@@ -29,9 +27,9 @@ not' = not
 -- in (x:xs)      =  x : in xs
 -- in []          =  error "empty list"
 inside :: [a] -> [a]
-inside [x] = []
-inside [x, y] = []
-inside (x : xs) = head xs : inside xs
+inside [_] = []
+inside [_, _] = []
+inside (_ : xs) = head xs : inside xs
 inside [] = error "empty list"
 
 -- c)
@@ -76,12 +74,12 @@ listMin = minimum
 
 -- h) (*)
 smap :: (a -> b) -> [a] -> [b]
-smap f [] = []
+smap _ [] = []
 smap f [x] = [f x]
 smap f (x : xs) = f x : smap f xs
 
 multMap :: (a -> a) -> [a] -> [a]
-multMap f [] = []
+multMap _ [] = []
 multMap f [x] = [f x]
 multMap f (x : xs) = f x : multMap f (multMap f xs)
 
@@ -117,13 +115,46 @@ five :: a -> Int
 five _ = 5
 
 apply :: (a -> b) -> a -> b
-apply f x = f x
+apply f = f
 
 ident :: a -> a
 ident x = x
 
 first :: (a, b) -> a
-first (a, b) = a
+first (a, _) = a
+
+derive :: (Fractional a) => (a -> a) -> a -> a -> a
+derive f x h = (f (x + h) - f x) / h
+
+sign :: (Num a, Eq a, Ord a) => a -> Int
+sign x
+  | x == 0 = 0
+  | x > 0 = 1
+  | otherwise = -1
+
+vabs :: (Num a, Ord a, Eq a) => a -> a
+vabs x
+  | sign x == 0 = 0
+  | sign x == 1 = x
+  | otherwise = x * (-1)
+
+vabs1 :: (Num a, Eq a, Ord a) => a -> a
+vabs1 x
+  | x == 0 = 0
+  | x > 0 = x
+  | otherwise = x * (-1)
+
+pot :: forall a. (Floating a) => a -> a -> a
+pot a x = x ** a
+
+xor :: Bool -> Bool -> Bool
+xor a b = a && not b || not a && b
+
+max3 :: Int -> Int -> Int -> Int
+max3 a b c = max a (max b c)
+
+swap :: (a, b) -> (b, a)
+swap (a, b) = (b, a)
 
 {-
 3) Definir una función que determine si un año es bisiesto o no, de
@@ -135,6 +166,16 @@ de cuatro. (Diccionario de la Real Academia Espaola, 22ª ed.)
 
 ¿Cuál es el tipo de la función definida?
 -}
+
+{-
+Si aplicamos nuestra regla actual hacia el pasado (lo que se llama Año bisiesto proléptico),
+los matemáticos dicen que los años 100, 200 y 300 no deberían contarse como bisiestos para que
+los cálculos astronómicos modernos cuadren, pero en la realidad histórica,
+la gente de esa época sí los vivió como años de 366 días.
+-}
+
+bisiesto :: Int -> Bool
+bisiesto a = if mod a 100 == 0 then mod a 400 == 0 else mod a 4 == 0
 
 {-
 4)
@@ -225,10 +266,70 @@ con longitud mayor que 'n' -}
 
 main :: IO ()
 main = do
-  -- a
+  -- 1
+  print "Ejercicio 1-------------------------------"
+
   print (not' False)
+
   print (inside [1, 2, 3, 4])
   print (inside [1, 2])
+
   print (len [1, 2])
+
   print (addToTail 3 [1, 2, 3])
+
   print (listMin [1, 2, 0, 3])
+
+  print (smap (+ 5) [1, 2, 0, 3])
+  print (multMap (+ 5) [1, 2, 0, 3])
+
+  -- 2
+  print "Ejercicio 2-------------------------------"
+
+  print (five [1, 2, 0, 3])
+
+  print (apply map (+ 5) [1, 2, 0, 3])
+
+  print (ident [1, 2, 0, 3])
+
+  print (first (1, 2))
+  print (first ([1, 2, 0, 3], 2))
+
+  print "Derivada|Aprox"
+  print (cos 0, derive sin 0 0.00001)
+  print "Derivada|Aprox"
+  print (cos 1, derive sin 1 0.00001)
+  print "Derivada|Aprox"
+  print (cos pi, derive sin pi 0.00001)
+
+  print (sign 45)
+  print (sign (-2))
+  print (sign 0)
+
+  print (vabs (-2))
+  print (vabs 2)
+  print (vabs1 0)
+  print (vabs1 (-3))
+
+  print (pot 3 3)
+  print (pot 8 2)
+
+  print (xor False False)
+  print (xor True True)
+  print (xor False True)
+  print (xor True False)
+
+  print (max3 3 4 5)
+  print (max3 5 4 3)
+
+  print (swap (3, 4))
+
+  -- 3
+  print "Ejercicio 3-------------------------------"
+  print (bisiesto 1900)
+  print (bisiesto 2024)
+  print (bisiesto 200)
+  print (bisiesto 200)
+
+  -- 4
+  print "Ejercicio 4-------------------------------"
