@@ -1,4 +1,5 @@
 -- module Lab01 where
+import Data.Char
 
 {-
 1) Corregir los siguientes programas de modo que sean aceptados por GHCi.
@@ -283,7 +284,49 @@ lista de aquellos que son letras (minúsculas o mayúsculas)
 
 k) 'masDe', que dada una lista de listas 'xss' y un
 número 'n', devuelve la lista de aquellas listas de 'xss'
-con longitud mayor que 'n' -}
+con longitud mayor que 'n'
+-}
+
+suma :: (Num a) => [a] -> a
+suma [] = 0
+suma (x : xs) = x + suma xs
+
+alguno :: [Bool] -> Bool
+alguno [] = False
+alguno (x : xs) = x || alguno xs
+
+todos :: [Bool] -> Bool
+todos [] = False
+todos [x] = x
+todos (x : xs) = x && todos xs
+
+restos :: (Integral a) => [a] -> a -> [a]
+restos [] _ = []
+restos (x : xs) a = mod x a : restos xs a
+
+cuadrados :: (Floating a) => [a] -> [a]
+cuadrados [] = []
+cuadrados (x : xs) = x ** 2 : cuadrados xs
+
+longitudes :: [[a]] -> [Int]
+longitudes [] = []
+longitudes (x : xs) = length x : longitudes xs
+
+orden :: (Num a, Ord a) => [(a, a)] -> [(a, a)]
+orden [] = []
+orden ((x, y) : xs) = if x < 3 * y then (x, y) : orden xs else orden xs
+
+pares :: [Int] -> [Int]
+pares [] = []
+pares (x : xs) = if even x then x : pares xs else pares xs
+
+letras :: [Char] -> [Char]
+letras [] = []
+letras (x : xs) = if isLetter x then x : letras xs else letras xs
+
+masDe :: [[a]] -> Int -> [[a]]
+masDe [] _ = []
+masDe (x : xs) n = if length x > n then x : masDe xs n else masDe xs n
 
 main :: IO ()
 main = do
@@ -374,3 +417,28 @@ main = do
 
   -- 7
   print "Ejercicio 7-------------------------------"
+
+  print (suma [1, 2, 3])
+  print (suma [])
+
+  print (alguno [False, False, False])
+  print (alguno [])
+  print (alguno [False, True])
+  print (alguno [True, True])
+  print (alguno [True])
+
+  print (todos [False, False, False])
+  print (todos [])
+  print (todos [False, True])
+  print (todos [True, True])
+  print (todos [True])
+
+  print (restos [2, 3, 2, 21] 2)
+  print (restos [2, 3, 2, 21] 3)
+
+  print (cuadrados [0, 1.2, 2, 3, 4])
+  print (longitudes [[], [], [1, 2], [0 .. 12]])
+  print (orden [(1, 2), (9, 2), (128, 2)])
+  print (pares [1, 2, 3, 4, 5, 6, 7, 8])
+  print (letras "hola como estas 123 3 4")
+  print (masDe [[1, 2, 3], [1], [1, 2, 3]] 2)
