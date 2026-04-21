@@ -339,61 +339,45 @@ main = do
   -- 1
   print "Ejercicio 1-------------------------------"
 
-  print (assert (not' False) "OK")
-
+  print (assert (not' False) (not' False))
   print (assert (inside [1, 2, 3, 4] == [2, 3]) "OK")
   print (assert (null (inside [1, 2])) "OK")
-
   print (assert (len [1, 2] == 2) "OK")
   print (assert (len [] == 0) "OK")
-
   print (assert (addToTail 3 [1, 2, 3] == [1, 5, 6]) "OK")
-
   print (assert (listMin [1, 2, 0, 3] == 0) "OK")
-
   print (assert (smap (+ 5) [1, 2, 0, 3] == [6, 7, 5, 8]) "OK")
-
   print (assert (multMap (+ 5) [1, 2, 0, 3] == [6, 12, 20, 43]) "OK")
 
   -- 2
   print "Ejercicio 2-------------------------------"
 
   print (five [1, 2, 0, 3])
-
   print (apply map (+ 5) [1, 2, 0, 3])
-
   print (ident [1, 2, 0, 3])
-
   print (first (1, 2))
   print (first ([1, 2, 0, 3], 2))
-
   print "Derivada|Aprox"
   print (cos 0, derive sin 0 0.00001)
   print "Derivada|Aprox"
   print (cos 1, derive sin 1 0.00001)
   print "Derivada|Aprox"
   print (cos pi, derive sin pi 0.00001)
-
   print (sign 45)
   print (sign (-2))
   print (sign 0)
-
   print (vabs (-2))
   print (vabs 2)
   print (vabs1 0)
   print (vabs1 (-3))
-
   print (pot 3 3)
   print (pot 8 2)
-
   print (xor False False)
   print (xor True True)
   print (xor False True)
   print (xor True False)
-
   print (max3 3 4 5)
   print (max3 5 4 3)
-
   print (swap (3, 4))
 
   -- 3
@@ -411,12 +395,9 @@ main = do
   print "Ejercicio 5-------------------------------"
   print (divisores 5)
   print (divisores 24)
-
   print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 5)
   print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 2)
-
   print (cuadrupla 7)
-
   print (unique [1, 2, 3, 44, 4, 4, 1])
 
   -- 6
@@ -428,24 +409,19 @@ main = do
 
   print (suma [1, 2, 3])
   print (suma [])
-
   print (alguno [False, False, False])
   print (alguno [])
   print (alguno [False, True])
   print (alguno [True, True])
   print (alguno [True])
-
   print (todos [False, False, False])
   print (todos [])
   print (todos [False, True])
   print (todos [True, True])
   print (todos [True])
-
   print (codes "Hola")
-
   print (restos [2, 3, 2, 21] 2)
   print (restos [2, 3, 2, 21] 3)
-
   print (cuadrados [0, 1.2, 2, 3, 4])
   print (longitudes [[], [], [1, 2], [0 .. 12]])
   print (orden [(1, 2), (9, 2), (128, 2)])
