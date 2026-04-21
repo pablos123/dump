@@ -1,5 +1,7 @@
 -- module Lab01 where
-import Data.Char
+
+import Control.Exception (assert)
+import Data.Char (isLetter)
 
 {-
 1) Corregir los siguientes programas de modo que sean aceptados por GHCi.
@@ -300,6 +302,10 @@ todos [] = False
 todos [x] = x
 todos (x : xs) = x && todos xs
 
+codes :: [Char] -> [Int]
+codes [] = []
+codes (x : xs) = fromEnum x : codes xs
+
 restos :: (Integral a) => [a] -> a -> [a]
 restos [] _ = []
 restos (x : xs) a = mod x a : restos xs a
@@ -333,19 +339,21 @@ main = do
   -- 1
   print "Ejercicio 1-------------------------------"
 
-  print (not' False)
+  print (assert (not' False) "OK")
 
-  print (inside [1, 2, 3, 4])
-  print (inside [1, 2])
+  print (assert (inside [1, 2, 3, 4] == [2, 3]) "OK")
+  print (assert (null (inside [1, 2])) "OK")
 
-  print (len [1, 2])
+  print (assert (len [1, 2] == 2) "OK")
+  print (assert (len [] == 0) "OK")
 
-  print (addToTail 3 [1, 2, 3])
+  print (assert (addToTail 3 [1, 2, 3] == [1, 5, 6]) "OK")
 
-  print (listMin [1, 2, 0, 3])
+  print (assert (listMin [1, 2, 0, 3] == 0) "OK")
 
-  print (smap (+ 5) [1, 2, 0, 3])
-  print (multMap (+ 5) [1, 2, 0, 3])
+  print (assert (smap (+ 5) [1, 2, 0, 3] == [6, 7, 5, 8]) "OK")
+
+  print (assert (multMap (+ 5) [1, 2, 0, 3] == [6, 12, 20, 43]) "OK")
 
   -- 2
   print "Ejercicio 2-------------------------------"
@@ -432,6 +440,8 @@ main = do
   print (todos [False, True])
   print (todos [True, True])
   print (todos [True])
+
+  print (codes "Hola")
 
   print (restos [2, 3, 2, 21] 2)
   print (restos [2, 3, 2, 21] 3)
