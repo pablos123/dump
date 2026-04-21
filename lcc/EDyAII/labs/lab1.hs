@@ -191,14 +191,21 @@ n. Por ejemplo,
 El operador *$ debe definirse de manera que la siguiente
 expresión sea válida:
 
+v = [1, 2, 3] *$ 2 *$ 4
+
 -}
 
--- v = [1, 2, 3] *$ 2 *$ 4
+--  (por defecto tendrá infixl 9)
+(*$) :: (Num a) => [a] -> a -> [a]
+(*$) l a = map (* a) l
+
+v :: (Num a) => [a]
+v = [1, 2, 3] *$ 2 *$ 4
 
 {-
 5) Definir las siguientes funciones usando listas por comprensión:
 
-a) 'divisors', que dado un entero positivo 'x' devuelve la
+a) 'divisores', que dado un entero positivo 'x' devuelve la
 lista de los divisores de 'x' (o la lista vacía si el entero no es positivo)
 
 b) 'matches', que dados un entero 'x' y una lista de enteros descarta
@@ -212,8 +219,17 @@ donde 0 <= a, b, c, d <= 'n'
 'xs' sin elementos repetidos
 -}
 
--- unique :: [Int] -> [Int]
--- unique xs = [x | (x, i) <- zip xs [0 ..], not (elem x (take i xs))]
+divisores :: Int -> [Int]
+divisores a = [x | x <- [1 .. a], mod a x == 0]
+
+matches :: [Int] -> Int -> [Int]
+matches l a = [x | x <- l, x == a]
+
+cuadrupla :: Int -> [(Int, Int, Int, Int)]
+cuadrupla a = [(x, y, z, w) | x <- [0 .. a], y <- [0 .. a], z <- [0 .. a], w <- [0 .. a], (x * x) + (y * y) == (z * z) + (w * w)]
+
+unique :: [Int] -> [Int]
+unique xs = [x | (x, i) <- zip xs [0 ..], x `notElem` take i xs]
 
 {-
 6) El producto escalar de dos listas de enteros de igual longitud
@@ -221,7 +237,11 @@ es la suma de los productos de los elementos sucesivos (misma
 posición) de ambas listas.  Definir una función 'scalarProduct' que
 devuelva el producto escalar de dos listas.
 
-Sugerencia: Usar las funciones 'zip' y 'sum'. -}
+Sugerencia: Usar las funciones 'zip' y 'sum'.
+-}
+
+scalarProduct :: [Int] -> [Int] -> Int
+scalarProduct l1 l2 = sum [x * y | (x, y) <- zip l1 l2]
 
 {-
 7) Definir mediante recursión explícita
@@ -333,3 +353,20 @@ main = do
 
   -- 4
   print "Ejercicio 4-------------------------------"
+  print v
+
+  -- 5
+  print "Ejercicio 5-------------------------------"
+  print (divisores 5)
+  print (divisores 24)
+
+  print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 5)
+  print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 2)
+
+  print (cuadrupla 7)
+
+  print (unique [1, 2, 3, 44, 4, 4, 1])
+
+  -- 6
+  print "Ejercicio 6-------------------------------"
+  print (scalarProduct [1, 2, 4] [2, 3, 4])
