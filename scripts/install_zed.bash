@@ -2,13 +2,13 @@
 set -Eeuo pipefail
 
 # --------------------------------------------------
-# Remove existing pyenv installation
+# Dependencies
 # --------------------------------------------------
-echo "==> Removing existing pyenv installation"
-rm --recursive --force "${HOME}/.pyenv" || true
+echo "==> Installing Zed dependencies"
+sudo apt-get install --yes rsync
 
 # --------------------------------------------------
-# Install pyenv
+# Install Zed editor
 # --------------------------------------------------
-echo "==> Installing pyenv"
-curl --fail --no-progress-meter --location https://pyenv.run | bash
+echo "==> Installing Zed editor"
+curl --fail --no-progress-meter --location https://zed.dev/install.sh | sh
