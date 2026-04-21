@@ -225,6 +225,7 @@ divisores a = [x | x <- [1 .. a], mod a x == 0]
 matches :: [Int] -> Int -> [Int]
 matches l a = [x | x <- l, x == a]
 
+-- Se puede revisar, esto es O(n^4)
 cuadrupla :: Int -> [(Int, Int, Int, Int)]
 cuadrupla a = [(x, y, z, w) | x <- [0 .. a], y <- [0 .. a], z <- [0 .. a], w <- [0 .. a], (x * x) + (y * y) == (z * z) + (w * w)]
 
@@ -370,3 +371,6 @@ main = do
   -- 6
   print "Ejercicio 6-------------------------------"
   print (scalarProduct [1, 2, 4] [2, 3, 4])
+
+  -- 7
+  print "Ejercicio 7-------------------------------"
