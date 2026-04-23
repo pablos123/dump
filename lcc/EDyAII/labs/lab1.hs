@@ -1,5 +1,8 @@
 -- module Lab01 where
 
+import Control.Exception (assert)
+import Data.Char (isLetter)
+
 {-
 1) Corregir los siguientes programas de modo que sean aceptados por GHCi.
 -}
@@ -283,66 +286,98 @@ lista de aquellos que son letras (minúsculas o mayúsculas)
 
 k) 'masDe', que dada una lista de listas 'xss' y un
 número 'n', devuelve la lista de aquellas listas de 'xss'
-con longitud mayor que 'n' -}
+con longitud mayor que 'n'
+-}
+
+suma :: (Num a) => [a] -> a
+suma [] = 0
+suma (x : xs) = x + suma xs
+
+alguno :: [Bool] -> Bool
+alguno [] = False
+alguno (x : xs) = x || alguno xs
+
+todos :: [Bool] -> Bool
+todos [] = False
+todos [x] = x
+todos (x : xs) = x && todos xs
+
+codes :: [Char] -> [Int]
+codes [] = []
+codes (x : xs) = fromEnum x : codes xs
+
+restos :: (Integral a) => [a] -> a -> [a]
+restos [] _ = []
+restos (x : xs) a = mod x a : restos xs a
+
+cuadrados :: (Floating a) => [a] -> [a]
+cuadrados [] = []
+cuadrados (x : xs) = x ** 2 : cuadrados xs
+
+longitudes :: [[a]] -> [Int]
+longitudes [] = []
+longitudes (x : xs) = length x : longitudes xs
+
+orden :: (Num a, Ord a) => [(a, a)] -> [(a, a)]
+orden [] = []
+orden ((x, y) : xs) = if x < 3 * y then (x, y) : orden xs else orden xs
+
+pares :: [Int] -> [Int]
+pares [] = []
+pares (x : xs) = if even x then x : pares xs else pares xs
+
+letras :: [Char] -> [Char]
+letras [] = []
+letras (x : xs) = if isLetter x then x : letras xs else letras xs
+
+masDe :: [[a]] -> Int -> [[a]]
+masDe [] _ = []
+masDe (x : xs) n = if length x > n then x : masDe xs n else masDe xs n
 
 main :: IO ()
 main = do
   -- 1
   print "Ejercicio 1-------------------------------"
 
-  print (not' False)
-
-  print (inside [1, 2, 3, 4])
-  print (inside [1, 2])
-
-  print (len [1, 2])
-
-  print (addToTail 3 [1, 2, 3])
-
-  print (listMin [1, 2, 0, 3])
-
-  print (smap (+ 5) [1, 2, 0, 3])
-  print (multMap (+ 5) [1, 2, 0, 3])
+  print (assert (not' False) (not' False))
+  print (assert (inside [1, 2, 3, 4] == [2, 3]) "OK")
+  print (assert (null (inside [1, 2])) "OK")
+  print (assert (len [1, 2] == 2) "OK")
+  print (assert (len [] == 0) "OK")
+  print (assert (addToTail 3 [1, 2, 3] == [1, 5, 6]) "OK")
+  print (assert (listMin [1, 2, 0, 3] == 0) "OK")
+  print (assert (smap (+ 5) [1, 2, 0, 3] == [6, 7, 5, 8]) "OK")
+  print (assert (multMap (+ 5) [1, 2, 0, 3] == [6, 12, 20, 43]) "OK")
 
   -- 2
   print "Ejercicio 2-------------------------------"
 
   print (five [1, 2, 0, 3])
-
   print (apply map (+ 5) [1, 2, 0, 3])
-
   print (ident [1, 2, 0, 3])
-
   print (first (1, 2))
   print (first ([1, 2, 0, 3], 2))
-
   print "Derivada|Aprox"
   print (cos 0, derive sin 0 0.00001)
   print "Derivada|Aprox"
   print (cos 1, derive sin 1 0.00001)
   print "Derivada|Aprox"
   print (cos pi, derive sin pi 0.00001)
-
   print (sign 45)
   print (sign (-2))
   print (sign 0)
-
   print (vabs (-2))
   print (vabs 2)
   print (vabs1 0)
   print (vabs1 (-3))
-
   print (pot 3 3)
   print (pot 8 2)
-
   print (xor False False)
   print (xor True True)
   print (xor False True)
   print (xor True False)
-
   print (max3 3 4 5)
   print (max3 5 4 3)
-
   print (swap (3, 4))
 
   -- 3
@@ -360,12 +395,9 @@ main = do
   print "Ejercicio 5-------------------------------"
   print (divisores 5)
   print (divisores 24)
-
   print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 5)
   print (matches [1, 2, 3, 4, 5, 5, 5, 5, 6] 2)
-
   print (cuadrupla 7)
-
   print (unique [1, 2, 3, 44, 4, 4, 1])
 
   -- 6
@@ -374,3 +406,25 @@ main = do
 
   -- 7
   print "Ejercicio 7-------------------------------"
+
+  print (suma [1, 2, 3])
+  print (suma [])
+  print (alguno [False, False, False])
+  print (alguno [])
+  print (alguno [False, True])
+  print (alguno [True, True])
+  print (alguno [True])
+  print (todos [False, False, False])
+  print (todos [])
+  print (todos [False, True])
+  print (todos [True, True])
+  print (todos [True])
+  print (codes "Hola")
+  print (restos [2, 3, 2, 21] 2)
+  print (restos [2, 3, 2, 21] 3)
+  print (cuadrados [0, 1.2, 2, 3, 4])
+  print (longitudes [[], [], [1, 2], [0 .. 12]])
+  print (orden [(1, 2), (9, 2), (128, 2)])
+  print (pares [1, 2, 3, 4, 5, 6, 7, 8])
+  print (letras "hola como estas 123 3 4")
+  print (masDe [[1, 2, 3], [1], [1, 2, 3]] 2)
