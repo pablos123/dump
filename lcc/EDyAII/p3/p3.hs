@@ -39,5 +39,6 @@ tailCL :: CList a -> CList a
 tailCL (CUnit x) = EmptyCL
 tailCL (Consnoc x l y) = appendElem l y
 
+main :: IO ()
 main = do
-  print (test 5)
+  print 5
