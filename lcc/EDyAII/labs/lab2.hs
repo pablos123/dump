@@ -155,11 +155,14 @@ main = do
   print (inorder (Node E (Node (Leaf 5) (Leaf 3))))
   print (inorder (Node (Node (Leaf 4) (Node (Leaf 3) (Leaf 3))) (Node (Leaf 4) (Node (Leaf 3) (Leaf 3)))))
 
+  -- Binary Trees
   let example_bin_tree_1 = NodeB (NodeB (NodeB (NodeB EB 'K' (NodeB EB 'L' EB)) 'F' (NodeB EB 'G' (NodeB EB 'H' EB))) 'B' (NodeB EB 'C' (NodeB EB 'D' (NodeB (NodeB (NodeB EB 'M' EB) 'I' (NodeB EB 'J' EB)) 'E' EB)))) 'A' EB
   let example_bin_tree_2 = NodeB (NodeB (NodeB (NodeB EB 'K' (NodeB EB 'L' EB)) 'F' (NodeB EB 'G' (NodeB EB 'H' EB))) 'B' (NodeB EB 'C' (NodeB EB 'D' (NodeB (NodeB (NodeB EB 'M' EB) 'I' (NodeB EB 'J' EB)) 'E' EB)))) 'A' (NodeB (NodeB EB 't' EB) 't' (NodeB EB 't' EB))
   let t = NodeB (NodeB EB 2 (NodeB EB 4 EB)) 1 (NodeB (NodeB EB 5 EB) 3 (NodeB EB 6 EB))
 
+  -- General Trees
   let example_general_tree_1 = NodeG 'A' [NodeG 'B' [NodeG 'F' [NodeG 'K' [], NodeG 'L' []], NodeG 'G' [], NodeG 'H' []], NodeG 'C' [], NodeG 'D' [], NodeG 'E' [NodeG 'I' [NodeG 'M' []], NodeG 'J' []]]
+
   print (g2bt example_general_tree_1)
   print (getLevel [example_bin_tree_1] 0)
   print (getLevel [example_bin_tree_1] 3)
