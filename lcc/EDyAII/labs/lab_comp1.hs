@@ -1,7 +1,4 @@
-module Lab1C where
-
 import Data.List
-import Data.Ord
 
 type Texto = String
 
@@ -12,7 +9,8 @@ type Texto = String
 -}
 
 frecuency :: Char -> Texto -> Float
-frecuency = undefined
+frecuency c "" = 0
+frecuency c t = fromIntegral (length [x | x <- t, x == c]) / fromIntegral (length t)
 
 {-
   Definir una función frecuencyMap que dado un texto calcule la frecuencia
@@ -25,8 +23,22 @@ frecuency = undefined
 -}
 
 frecuencyMap :: Texto -> [(Char, Float)]
-frecuencyMap = undefined
+frecuencyMap "" = []
+frecuencyMap t = sortBy (\(_, a) (_, b) -> compare a b) [(x, frecuency x t) | x <- unique t]
 
+unique :: (Ord a) => [a] -> [a]
+unique [] = []
+unique l = generateUniqueList l []
+
+generateUniqueList :: (Ord a) => [a] -> [a] -> [a]
+generateUniqueList [] ret = ret
+generateUniqueList (l : ls) ret = if not (isIn ret l) then generateUniqueList ls (l : ret) else generateUniqueList ls ret
+
+isIn :: (Eq a) => [a] -> a -> Bool
+isIn [] _ = False
+isIn l v = or [x == v | x <- l]
+
+--
 {-
   Definir una función subconjuntos, que dada una lista xs devuelva una lista
   con las listas que pueden generarse con los elementos de xs.
@@ -35,7 +47,11 @@ frecuencyMap = undefined
 -}
 
 subconjuntos :: [a] -> [[a]]
-subconjuntos = undefined
+subconjuntos [] = []
+subconjuntos (l : ls) = [l] : generateSubset l ls
+
+generateSubset :: a -> [a] -> [[a]]
+generateSubset = undefined
 
 {-
  Definir una función intercala :: a -> [a] -> [[a]]
@@ -57,3 +73,10 @@ intercala = undefined
 
 permutaciones :: [a] -> [[a]]
 permutaciones = undefined
+
+main :: IO ()
+main = do
+  print (frecuency 'a' "")
+  print (frecuency 'a' "casa")
+  print (unique "casa")
+  print (frecuencyMap "casa")
