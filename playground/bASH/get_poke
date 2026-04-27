@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+poke_id="$(( RANDOM % 1025 + 1))"
+
+notify_normal() {
+    notify-send --icon="$(./pokeapi.bash sprite "${1}")" "Wild "$(./pokeapi.bash name "${1}")" encountered!" "$(./pokeapi.bash stats "${1}")"
+}
+
+notify_shiny() {
+    notify-send --icon="$(./pokeapi.bash sprite "${1}" front_shiny)" "Wild "$(./pokeapi.bash name "${1}")" shiny encountered!" "$(./pokeapi.bash stats "${1}")"
+}
+
+
+if (( RANDOM % 2 == 0)); then
+    notify_normal "${poke_id}"
+else
+    notify_shiny "${poke_id}"
+fi
+
