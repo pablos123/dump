@@ -27,11 +27,11 @@ Commands:
   species <name|id>        Pokemon-species resource JSON
   item <name|id>           Item resource JSON
 
-  stats <pokemon>                  Base stats table (name<TAB>value)
+  stats <pokemon>                  Base stats table (name: value)
   types <pokemon>                  Type names, one per line
   moves <pokemon>                  Move names, one per line
   id <pokemon>                     Numeric id
-  name <pokemon>                   Pokemon name (id → name)
+  name <pokemon>                   Pokemon name (id -> name)
   forms <pokemon>                  List all forms/varieties of pokemon's species
   sprite-url <pokemon> [variant]   Sprite URL (default variant: front_default)
   sprite <pokemon> [variant]       Download sprite, print cached file path

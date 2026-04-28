@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+POKEAPI_BIN="/home/pab/repos/dump/playground/bASH/pokeapi.bash"
+
+poke_id="$(( RANDOM % 1025 + 1))"
+
+notify_normal() {
+    notify-send --icon="$("${POKEAPI_BIN}" sprite "${1}")" "Wild "$("${POKEAPI_BIN}" name "${1}")" encountered!" "$("${POKEAPI_BIN}" stats "${1}")"
+}
+
+notify_shiny() {
+    notify-send --icon="$("${POKEAPI_BIN}" sprite "${1}" front_shiny)" "Wild shiny "$("${POKEAPI_BIN}" name "${1}")" encountered!" "$("${POKEAPI_BIN}" stats "${1}")"
+}
+
+
+if (( RANDOM % 2 == 0)); then
+    notify_normal "${poke_id}"
+else
+    notify_shiny "${poke_id}"
+fi
+

@@ -21,7 +21,7 @@ function species()  { pokeapi_get "pokemon-species/$1"; }
 function item()     { pokeapi_get "item/$1"; }
 
 function pokemon_types() { pokemon "$1" | jq -r '.types[].type.name'; }
-function pokemon_stats() { pokemon "$1" | jq -r '.stats[] | "\(.stat.name)\t\(.base_stat)"'; }
+function pokemon_stats() { pokemon "$1" | jq -r '.stats[] | "\(.stat.name): \(.base_stat)"'; }
 function pokemon_moves() { pokemon "$1" | jq -r '.moves[].move.name'; }
 function pokemon_id()    { pokemon "$1" | jq -r '.id'; }
 function pokemon_name()  { pokemon "$1" | jq -r '.name'; }
