@@ -38,7 +38,6 @@ isIn :: (Eq a) => [a] -> a -> Bool
 isIn [] _ = False
 isIn l v = or [x == v | x <- l]
 
---
 {-
   Definir una función subconjuntos, que dada una lista xs devuelva una lista
   con las listas que pueden generarse con los elementos de xs.
@@ -47,11 +46,12 @@ isIn l v = or [x == v | x <- l]
 -}
 
 subconjuntos :: [a] -> [[a]]
-subconjuntos [] = []
-subconjuntos (l : ls) = [l] : generateSubset l ls
+subconjuntos [] = [[]]
+subconjuntos (l : ls) = generateSubset l ls ++ subconjuntos ls
 
 generateSubset :: a -> [a] -> [[a]]
-generateSubset = undefined
+generateSubset x [] = [[x]]
+generateSubset x (l : ls) = (x : l : ls) : generateSubset x ls
 
 {-
  Definir una función intercala :: a -> [a] -> [[a]]
@@ -62,7 +62,26 @@ generateSubset = undefined
 -}
 
 intercala :: a -> [a] -> [[a]]
-intercala = undefined
+intercala _ [] = []
+intercala x l = intercala' x l 0 (length l)
+
+intercala' :: a -> [a] -> Int -> Int -> [[a]]
+intercala' x l i j
+  | i == j = [l ++ [x]]
+  | otherwise = (getUntil i l ++ [x] ++ getFrom i l) : intercala' x l (i + 1) j
+
+getUntil :: Int -> [a] -> [a]
+getUntil 0 _ = []
+getUntil i (l : ls) = l : getUntil (i - 1) ls
+
+getFrom :: Int -> [a] -> [a]
+getFrom i = getFrom' i 0
+
+getFrom' :: Int -> Int -> [a] -> [a]
+getFrom' 0 _ l = l
+getFrom' i j (l : ls)
+  | i == j = l : ls
+  | otherwise = getFrom' i (j + 1) ls
 
 {-
   Definir una función permutaciones que dada una lista calcule todas las permutaciones
@@ -72,7 +91,8 @@ intercala = undefined
 -}
 
 permutaciones :: [a] -> [[a]]
-permutaciones = undefined
+permutaciones [] = []
+permutaciones l = undefined
 
 main :: IO ()
 main = do
@@ -80,3 +100,16 @@ main = do
   print (frecuency 'a' "casa")
   print (unique "casa")
   print (frecuencyMap "casa")
+  print (subconjuntos "casa")
+  print (subconjuntos [2, 3, 4])
+  print (intercala 1 [2, 3, 4])
+  print (intercala 1 [2, 3])
+  print (intercala 1 [])
+  print (intercala 'a' "cac")
+  print (intercala 'a' "bc")
+
+  print (permutaciones [1, 2])
+  print (permutaciones "abc")
+  print (permutaciones "nachito")
+
+-- print (permutaciones "nachito el mas capito")
