@@ -1,4 +1,5 @@
 import Data.List (sortBy)
+import System.Posix (EmptyPath)
 
 data NdTree p
   = Node
@@ -43,6 +44,12 @@ instance Punto Punto3d where
   coord 2 (P3d (_, _, k)) = k
   coord _ (P3d _) = error "Bad index for Punto3d"
 
+instance Eq Punto2d where
+  P2d (i, j) == P2d (k, l) = (i == k) && (j == l)
+
+instance Eq Punto3d where
+  P3d (i, j, k) == P3d (l, m, n) = (i == l) && (j == m) && (k == n)
+
 fromList :: (Punto p) => [p] -> NdTree p
 fromList [] = Empty
 fromList xs = fromList' xs 0 (dimension (head xs))
@@ -71,7 +78,24 @@ insertar p (Node l pt r e)
   | otherwise = Node (insertar p l) pt r e
 
 eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
-eliminar = undefined
+eliminar _ Empty = Empty
+eliminar p (Node Empty pt Empty e)
+  | p == pt = Empty
+  | otherwise = Node Empty pt Empty e
+eliminar p (Node l pt Empty e)
+  | p == pt = eliminarFoundLeft l e
+  | coord e p <= coord e pt = Node (eliminar p l) pt Empty e
+  | otherwise = Node l pt Empty e
+
+eliminarFoundLeft :: (Eq p, Punto p) => NdTree p -> Int -> NdTree p
+eliminarFoundLeft l e =
+  let biggerSmallers = undef
+      candidato = head biggerSmallers
+      addElimList = tail biggerSmallers
+   in reconstruct (Node (eliminar candidato l) candidato Empty e) addElimList
+
+reconstruct :: (Eq p, Punto p) => NdTree p -> [p] -> NdTree p
+reconstruct = foldl (\t l -> insertar l (eliminar l t))
 
 main :: IO ()
 main = do
