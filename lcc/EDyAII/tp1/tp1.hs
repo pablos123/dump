@@ -70,6 +70,9 @@ insertar p (Node l pt r e)
   | coord e p > coord e pt = Node l pt (insertar p r) e
   | otherwise = Node (insertar p l) pt r e
 
+eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
+eliminar = undefined
+
 main :: IO ()
 main = do
   let test_p2d = P2d (1, 2)
