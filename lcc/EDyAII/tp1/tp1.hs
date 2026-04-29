@@ -53,7 +53,10 @@ fromList' xs i d =
   let eje = i `mod` d
       sorted = sortBy (\x y -> compare (coord eje x) (coord eje y)) xs
       m_ind = length sorted `div` 2
-   in Node (fromList' (take m_ind sorted) (i + 1) d) (sorted !! m_ind) (fromList' (drop (m_ind + 1) sorted) (i + 1) d) eje
+      m_punto = sorted !! m_ind
+      m_value_p = coord eje m_punto
+      r_list = drop (m_ind + 1) sorted
+   in Node (fromList' (take m_ind sorted ++ takeWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) m_punto (fromList' (dropWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) eje
 
 insertar :: (Punto p) => p -> NdTree p -> NdTree p
 insertar p Empty = Node Empty p Empty 0
@@ -75,24 +78,37 @@ main = do
   let test_list_p2d = [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
   let test_list_p2d_1 = [P2d (2, 3), P2d (5, 4), P2d (9, 6)]
   let test_list_p2d_2 = [P2d (5, 4), P2d (2, 3), P2d (9, 6)]
+  let test_list_p2d_3 = [P2d (2, 2), P2d (2, 3), P2d (2, 4)]
 
   let test_tree = fromList test_list_p2d_2
   let test_tree_1 = fromList test_list_p2d
 
+  print "Ejercicio 1. Puntos 2D"
+  print "==========="
   print test_p2d
   print (coord 1 test_p2d)
   print (dimension test_p2d)
   print (dist test_p2d test_p2d)
+  print "==========="
 
+  print "Ejercicio 1. Puntos 3D"
+  print "==========="
   print test_p3d
   print (coord 2 test_p3d)
   print (dimension test_p3d)
   print (dist test_p3d test_p3d)
+  print "==========="
 
+  print "Ejercicio 2."
+  print "==========="
   print (fromList test_list_p2d)
   print (fromList test_list_p2d_1)
-  print test_tree
+  print (fromList test_list_p2d_3)
+  print "==========="
 
+  print "Ejercicio 3"
+  print "==========="
   print (insertar test_p2d test_tree)
   print (insertar test_p2d_1 test_tree_1)
   print (insertar test_p2d_1 (insertar test_p2d_1 test_tree_1))
+  print "==========="
