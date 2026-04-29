@@ -7,7 +7,13 @@ data NdTree p
       (NdTree p) -- sub´arbol derecho
       Int -- eje
   | Empty
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance (Show p) => Show (NdTree p) where
+  show Empty = " . "
+  -- show (Node Empty p Empty e) = " (" ++ " h " ++ show p ++ " h " ++ show e ++ ") "
+  show (Node l p r e) =
+    " (" ++ show l ++ " <- " ++ show p ++ " -> " ++ show r ++ show e ++ ") "
 
 class Punto p where
   -- devuelve el número de coordenadas de un punto
@@ -49,13 +55,29 @@ fromList' xs i d =
       m_ind = length sorted `div` 2
    in Node (fromList' (take m_ind sorted) (i + 1) d) (sorted !! m_ind) (fromList' (drop (m_ind + 1) sorted) (i + 1) d) eje
 
+insertar :: (Punto p) => p -> NdTree p -> NdTree p
+insertar p Empty = Node Empty p Empty 0
+insertar p (Node Empty pt r e)
+  | coord e p <= coord e pt = Node (Node Empty p Empty ((e + 1) `mod` dimension pt)) pt r e
+  | otherwise = Node Empty pt (insertar p r) e
+insertar p (Node l pt Empty e)
+  | coord e p > coord e pt = Node l pt (Node Empty p Empty ((e + 1) `mod` dimension pt)) e
+  | otherwise = Node (insertar p l) pt Empty e
+insertar p (Node l pt r e)
+  | coord e p > coord e pt = Node l pt (insertar p r) e
+  | otherwise = Node (insertar p l) pt r e
+
 main :: IO ()
 main = do
   let test_p2d = P2d (1, 2)
+  let test_p2d_1 = P2d (1, 5)
   let test_p3d = P3d (1, 2, 3)
   let test_list_p2d = [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
   let test_list_p2d_1 = [P2d (2, 3), P2d (5, 4), P2d (9, 6)]
   let test_list_p2d_2 = [P2d (5, 4), P2d (2, 3), P2d (9, 6)]
+
+  let test_tree = fromList test_list_p2d_2
+  let test_tree_1 = fromList test_list_p2d
 
   print test_p2d
   print (coord 1 test_p2d)
@@ -69,4 +91,8 @@ main = do
 
   print (fromList test_list_p2d)
   print (fromList test_list_p2d_1)
-  print (fromList test_list_p2d_2)
+  print test_tree
+
+  print (insertar test_p2d test_tree)
+  print (insertar test_p2d_1 test_tree_1)
+  print (insertar test_p2d_1 (insertar test_p2d_1 test_tree_1))
