@@ -106,6 +106,25 @@ eliminarFoundRight (Node l pt r e) =
 
 getBiggers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
 getBiggers Empty _ = []
+getBiggers (Node Empty p Empty _) _ = [p]
+getBiggers (Node l p Empty _) e =
+  let leftListBiggers = getBiggers l e
+      c = coord e p
+      cl = coord e (head leftListBiggers)
+   in case c of
+        x
+          | cl > x -> leftListBiggers
+          | x > cl -> [p]
+          | otherwise -> p : leftListBiggers
+getBiggers (Node Empty p r _) e =
+  let rightListBiggers = getBiggers r e
+      c = coord e p
+      cr = coord e (head rightListBiggers)
+   in case c of
+        x
+          | cr > x -> rightListBiggers
+          | x > cr -> [p]
+          | otherwise -> p : rightListBiggers
 getBiggers (Node l p r _) e =
   let leftListBiggers = getBiggers l e
       rightListBiggers = getBiggers r e
