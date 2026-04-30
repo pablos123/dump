@@ -1,5 +1,4 @@
 import Data.List (sortBy)
-import System.Posix (EmptyPath)
 
 data NdTree p
   = Node
@@ -83,11 +82,11 @@ eliminar p n@(Node Empty pt Empty e)
   | p == pt = Empty
   | otherwise = n
 eliminar p n@(Node l pt Empty e)
-  | p == pt = eliminarFoundLeft n e
+  | p == pt = eliminarFoundLeft n
   | coord e p <= coord e pt = Node (eliminar p l) pt Empty e
   | otherwise = n
 eliminar p n@(Node l pt r e)
-  | p == pt = eliminarFoundRight n e
+  | p == pt = eliminarFoundRight n
   | coord e p > coord e pt = Node l pt (eliminar p r) e
   | otherwise = Node (eliminar p l) pt r e
 
@@ -103,10 +102,10 @@ eliminarFoundRight (Node l pt r e) =
   let smallerBiggers = getSmallers r e
       candidato = head smallerBiggers
       toMovePoints = tail smallerBiggers
-   in Node (foldl (flip insertar) l toMovePoints) candidato (foldl (flip eliminar) smallerBiggers) e
+   in Node (foldl (flip insertar) l toMovePoints) candidato (foldl (flip eliminar) r smallerBiggers) e
 
 getBiggers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
-getBiggers Empty _ = error "Bad tree for getBiggers"
+getBiggers Empty _ = []
 getBiggers (Node l p r _) e =
   let leftListBiggers = getBiggers l e
       rightListBiggers = getBiggers r e
@@ -122,6 +121,43 @@ getBiggers (Node l p r _) e =
           | cl < x -> p : rightListBiggers
           | cr < x -> p : leftListBiggers
           | otherwise -> p : leftListBiggers ++ rightListBiggers
+
+getSmallers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
+getSmallers Empty _ = []
+getSmallers (Node Empty p Empty _) _ = [p]
+getSmallers (Node l p Empty _) e =
+  let leftListSmallers = getSmallers l e
+      c = coord e p
+      cl = coord e (head leftListSmallers)
+   in case c of
+        x
+          | cl < x -> leftListSmallers
+          | x < cl -> [p]
+          | otherwise -> p : leftListSmallers
+getSmallers (Node Empty p r _) e =
+  let rightListSmallers = getSmallers r e
+      c = coord e p
+      cr = coord e (head rightListSmallers)
+   in case c of
+        x
+          | cr < x -> rightListSmallers
+          | x < cr -> [p]
+          | otherwise -> p : rightListSmallers
+getSmallers (Node l p r _) e =
+  let leftListSmallers = getSmallers l e
+      rightListSmallers = getSmallers r e
+      c = coord e p
+      cl = coord e (head leftListSmallers)
+      cr = coord e (head rightListSmallers)
+   in case c of
+        x
+          | cl < x && cl < cr -> leftListSmallers
+          | cr < x && cr < cl -> rightListSmallers
+          | x < cl && x < cr -> [p]
+          | x > cl -> leftListSmallers ++ rightListSmallers
+          | cl > x -> p : rightListSmallers
+          | cr > x -> p : leftListSmallers
+          | otherwise -> p : leftListSmallers ++ rightListSmallers
 
 main :: IO ()
 main = do
@@ -166,4 +202,4 @@ main = do
   print (insertar test_p2d_1 (insertar test_p2d_1 test_tree_1))
   print "==========="
 
-  print (getBiggers test_tree 0)
+  print (eliminar (P2d (5, 4)) test_tree)
