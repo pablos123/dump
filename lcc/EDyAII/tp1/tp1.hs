@@ -79,23 +79,49 @@ insertar p (Node l pt r e)
 
 eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
 eliminar _ Empty = Empty
-eliminar p (Node Empty pt Empty e)
+eliminar p n@(Node Empty pt Empty e)
   | p == pt = Empty
-  | otherwise = Node Empty pt Empty e
-eliminar p (Node l pt Empty e)
-  | p == pt = eliminarFoundLeft l e
+  | otherwise = n
+eliminar p n@(Node l pt Empty e)
+  | p == pt = eliminarFoundLeft n e
   | coord e p <= coord e pt = Node (eliminar p l) pt Empty e
-  | otherwise = Node l pt Empty e
+  | otherwise = n
+eliminar p n@(Node l pt r e)
+  | p == pt = eliminarFoundRight n e
+  | coord e p > coord e pt = Node l pt (eliminar p r) e
+  | otherwise = Node (eliminar p l) pt r e
 
-eliminarFoundLeft :: (Eq p, Punto p) => NdTree p -> Int -> NdTree p
-eliminarFoundLeft l e =
-  let biggerSmallers = undef
+eliminarFoundLeft :: (Eq p, Punto p) => NdTree p -> NdTree p
+eliminarFoundLeft (Node l pt Empty e) =
+  let biggerSmallers = getBiggers l e
       candidato = head biggerSmallers
-      addElimList = tail biggerSmallers
-   in reconstruct (Node (eliminar candidato l) candidato Empty e) addElimList
+   in Node (eliminar candidato l) candidato Empty e
+eliminarFoundLeft _ = error "Bad node for eliminarFoundLeft"
 
-reconstruct :: (Eq p, Punto p) => NdTree p -> [p] -> NdTree p
-reconstruct = foldl (\t l -> insertar l (eliminar l t))
+eliminarFoundRight :: (Eq p, Punto p) => NdTree p -> NdTree p
+eliminarFoundRight (Node l pt r e) =
+  let smallerBiggers = getSmallers r e
+      candidato = head smallerBiggers
+      toMovePoints = tail smallerBiggers
+   in Node (foldl (flip insertar) l toMovePoints) candidato (foldl (flip eliminar) smallerBiggers) e
+
+getBiggers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
+getBiggers Empty _ = error "Bad tree for getBiggers"
+getBiggers (Node l p r _) e =
+  let leftListBiggers = getBiggers l e
+      rightListBiggers = getBiggers r e
+      c = coord e p
+      cl = coord e (head leftListBiggers)
+      cr = coord e (head rightListBiggers)
+   in case c of
+        x
+          | cl > x && cl > cr -> leftListBiggers
+          | cr > x && cr > cl -> rightListBiggers
+          | x > cl && x > cr -> [p]
+          | x < cl -> leftListBiggers ++ rightListBiggers
+          | cl < x -> p : rightListBiggers
+          | cr < x -> p : leftListBiggers
+          | otherwise -> p : leftListBiggers ++ rightListBiggers
 
 main :: IO ()
 main = do
@@ -139,3 +165,5 @@ main = do
   print (insertar test_p2d_1 test_tree_1)
   print (insertar test_p2d_1 (insertar test_p2d_1 test_tree_1))
   print "==========="
+
+  print (getBiggers test_tree 0)
