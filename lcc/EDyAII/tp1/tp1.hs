@@ -180,45 +180,122 @@ getSmallers (Node l p r _) e =
 
 main :: IO ()
 main = do
-  let test_p2d = P2d (1, 2)
-  let test_p2d_1 = P2d (1, 5)
-  let test_p3d = P3d (1, 2, 3)
-  let test_list_p2d = [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
-  let test_list_p2d_1 = [P2d (2, 3), P2d (5, 4), P2d (9, 6)]
-  let test_list_p2d_2 = [P2d (5, 4), P2d (2, 3), P2d (9, 6)]
-  let test_list_p2d_3 = [P2d (2, 2), P2d (2, 3), P2d (2, 4)]
+  -- =========================
+  -- TESTS EJERCICIO 1
+  -- =========================
 
-  let test_tree = fromList test_list_p2d_2
-  let test_tree_1 = fromList test_list_p2d
+  print "=== Ejercicio 1 ==="
 
-  print "Ejercicio 1. Puntos 2D"
-  print "==========="
-  print test_p2d
-  print (coord 1 test_p2d)
-  print (dimension test_p2d)
-  print (dist test_p2d test_p2d)
-  print "==========="
+  print (coord 0 (P2d (3, 4)))
+  print (coord 1 (P2d (3, 4)))
+  print (dimension (P2d (3, 4)))
 
-  print "Ejercicio 1. Puntos 3D"
-  print "==========="
-  print test_p3d
-  print (coord 2 test_p3d)
-  print (dimension test_p3d)
-  print (dist test_p3d test_p3d)
-  print "==========="
+  print (coord 0 (P3d (1, 2, 3)))
+  print (coord 2 (P3d (1, 2, 3)))
+  print (dimension (P3d (1, 2, 3)))
 
-  print "Ejercicio 2."
-  print "==========="
-  print (fromList test_list_p2d)
-  print (fromList test_list_p2d_1)
-  print (fromList test_list_p2d_3)
-  print "==========="
+  print (dist (P2d (0, 0)) (P2d (3, 4)))
+  print (dist (P2d (1, 1)) (P2d (1, 1)))
+  print (dist (P3d (0, 0, 0)) (P3d (1, 2, 2)))
 
-  print "Ejercicio 3"
-  print "==========="
-  print (insertar test_p2d test_tree)
-  print (insertar test_p2d_1 test_tree_1)
-  print (insertar test_p2d_1 (insertar test_p2d_1 test_tree_1))
-  print "==========="
+  print (dist (P2d (2, 2)) (P2d (2, 5)))
+  print (dist (P2d (-1, -1)) (P2d (1, 1)))
 
-  print (eliminar (P2d (5, 4)) test_tree)
+  -- =========================
+  -- TESTS EJERCICIO 2
+  -- =========================
+
+  print "=== Ejercicio 2 ==="
+
+  print (fromList ([] :: [Punto2d]))
+  print (fromList [P2d (1, 1)])
+  print (fromList [P2d (1, 1), P2d (2, 2)])
+
+  print (fromList [P2d (5, 4), P2d (2, 3), P2d (9, 6)])
+  print (fromList [P2d (9, 6), P2d (5, 4), P2d (2, 3)])
+
+  print (fromList [P2d (2, 2), P2d (2, 3), P2d (2, 4)])
+
+  print (fromList [P2d (1, 1), P2d (1, 1), P2d (1, 1)])
+
+  print (fromList [P2d (1, 2), P2d (3, 4), P2d (5, 6), P2d (7, 8), P2d (9, 1), P2d (2, 3), P2d (4, 5), P2d (6, 7)])
+
+  -- =========================
+  -- TESTS EJERCICIO 3
+  -- =========================
+
+  print "=== Ejercicio 3 ==="
+
+  print (insertar (P2d (1, 1)) Empty)
+
+  let t_ins = fromList [P2d (5, 5)]
+  print (insertar (P2d (3, 3)) t_ins)
+  print (insertar (P2d (7, 7)) t_ins)
+
+  let t1 = insertar (P2d (3, 3)) t_ins
+  let t2 = insertar (P2d (7, 7)) t1
+  let t3 = insertar (P2d (4, 4)) t2
+  print t3
+
+  print (insertar (P2d (5, 5)) t_ins)
+
+  let t_same_axis = fromList [P2d (2, 2), P2d (2, 3)]
+  print (insertar (P2d (2, 4)) t_same_axis)
+
+  -- =========================
+  -- TESTS EJERCICIO 4
+  -- =========================
+
+  print "=== Ejercicio 4 ==="
+
+  let t_del1 = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6)]
+  print t_del1
+  print (eliminar (P2d (2, 3)) t_del1)
+
+  print (eliminar (P2d (5, 4)) t_del1)
+
+  let t_left = fromList [P2d (5, 5), P2d (3, 3)]
+  print (eliminar (P2d (5, 5)) t_left)
+
+  let t_right = fromList [P2d (5, 5), P2d (7, 7)]
+  print (eliminar (P2d (5, 5)) t_right)
+
+  let t_not_found = fromList [P2d (1, 1), P2d (2, 2)]
+  print (eliminar (P2d (9, 9)) t_not_found)
+
+  let t_dups = fromList [P2d (1, 1), P2d (1, 1), P2d (1, 1)]
+  print (eliminar (P2d (1, 1)) t_dups)
+
+  let t_big = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
+
+  print (eliminar (P2d (7, 2)) t_big)
+  print (eliminar (P2d (4, 7)) t_big)
+  print (eliminar (P2d (8, 1)) t_big)
+
+  let t_chain0 = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
+
+  let t_chain1 = eliminar (P2d (2, 3)) t_chain0
+  let t_chain2 = eliminar (P2d (5, 4)) t_chain1
+  let t_chain3 = eliminar (P2d (7, 2)) t_chain2
+  print t_chain3
+
+  -- =========================
+  -- OTROS
+  -- =========================
+
+  print "=== Stress Tests ==="
+
+  let t_same_x = fromList [P2d (2, 1), P2d (2, 2), P2d (2, 3), P2d (2, 4)]
+  print t_same_x
+  print (eliminar (P2d (2, 2)) t_same_x)
+
+  let t_mix = fromList [P2d (1, 1), P2d (1, 1), P2d (2, 2)]
+  print t_mix
+  print (eliminar (P2d (1, 1)) t_mix)
+
+  let t_single = fromList [P2d (1, 1)]
+  print t_single
+  print (eliminar (P2d (1, 1)) t_single)
+
+  let t_foldl = foldl (flip insertar) Empty [P2d (2.0, 3.0), P2d (3.0, 4.0), P2d (3.0, 3.0), P2d (3.5, 3.5), P2d (5.0, 6.0)]
+  print t_foldl
