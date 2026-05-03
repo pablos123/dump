@@ -109,3 +109,29 @@ encounter_compute_all_stats() {
     done
     printf '%s' "${out[*]}"
 }
+
+# Roll an ability. Prints JSON {name, is_hidden}.
+encounter_roll_ability() {
+    local species="$1"
+    local poke
+    poke="$(pokeapi_get "pokemon/$species")"
+    local hidden_rate="${POKIDLE_HIDDEN_ABILITY_RATE:-5}"
+
+    local hidden_arr normal_arr
+    hidden_arr="$(jq '[.abilities[] | select(.is_hidden==true) | {name: .ability.name, is_hidden: true}]' <<< "$poke")"
+    normal_arr="$(jq '[.abilities[] | select(.is_hidden==false) | {name: .ability.name, is_hidden: false}]' <<< "$poke")"
+
+    local roll=$((RANDOM % 100))
+    local pool=""
+    if (( roll < hidden_rate )) && [[ "$(jq 'length' <<< "$hidden_arr")" != "0" ]]; then
+        pool="$hidden_arr"
+    else
+        pool="$normal_arr"
+    fi
+    [[ "$(jq 'length' <<< "$pool")" == "0" ]] && pool="$hidden_arr"   # last-resort
+
+    local n idx
+    n="$(jq 'length' <<< "$pool")"
+    idx=$((RANDOM % n))
+    jq -c ".[$idx]" <<< "$pool"
+}
