@@ -1,0 +1,149 @@
+{
+  "biomes": [
+    {
+      "id": "cave",
+      "label": "Cave",
+      "name_regex": "(?i)cave|cavern|grotto|tunnel|mine",
+      "type_affinity": ["rock", "ground", "dark"],
+      "berry_pool": ["rawst", "aspear", "chesto", "lum"],
+      "item_pool": ["everstone", "hard-stone", "smoke-ball", "dusk-stone", "thick-club"]
+    },
+    {
+      "id": "desert",
+      "label": "Desert",
+      "name_regex": "(?i)desert|dunes|sand",
+      "type_affinity": ["ground", "fire"],
+      "berry_pool": ["watmel", "figy", "rabuta"],
+      "item_pool": ["soft-sand", "heat-rock", "stick"]
+    },
+    {
+      "id": "forest",
+      "label": "Forest",
+      "name_regex": "(?i)forest|woods|jungle",
+      "type_affinity": ["grass", "bug"],
+      "berry_pool": ["chesto", "pecha", "leppa", "oran", "leaf"],
+      "item_pool": ["leaf-stone", "miracle-seed", "silver-powder", "shed-shell"]
+    },
+    {
+      "id": "mountain",
+      "label": "Mountain",
+      "name_regex": "(?i)mt-|mountain|peak|summit",
+      "type_affinity": ["rock", "ice", "flying"],
+      "berry_pool": ["cheri", "persim", "kee"],
+      "item_pool": ["sharp-beak", "sky-plate", "rocky-helmet"]
+    },
+    {
+      "id": "volcano",
+      "label": "Volcano",
+      "name_regex": "(?i)volcano|crater|magma|lava",
+      "type_affinity": ["fire", "rock"],
+      "berry_pool": ["occa", "rowap", "jaboca"],
+      "item_pool": ["fire-stone", "charcoal", "magmarizer", "flame-plate"]
+    },
+    {
+      "id": "plain",
+      "label": "Plain",
+      "name_regex": "(?i)route-[0-9]+|meadow|field|plains",
+      "type_affinity": ["normal", "flying", "grass"],
+      "berry_pool": ["pecha", "lum", "sitrus", "iapapa"],
+      "item_pool": ["silk-scarf", "lucky-egg", "exp-share"]
+    },
+    {
+      "id": "savanna",
+      "label": "Savanna",
+      "name_regex": "(?i)savann?a",
+      "type_affinity": ["normal", "fire", "ground"],
+      "berry_pool": ["liechi", "salac"],
+      "item_pool": ["choice-scarf", "muscle-band"]
+    },
+    {
+      "id": "safari",
+      "label": "Safari",
+      "name_regex": "(?i)safari",
+      "type_affinity": [],
+      "berry_pool": ["apicot", "lansat", "starf", "micle", "custap"],
+      "item_pool": ["king-s-rock", "amulet-coin", "shell-bell"]
+    },
+    {
+      "id": "water",
+      "label": "Water",
+      "name_regex": "(?i)lake|sea|ocean|beach|shore|bay",
+      "type_affinity": ["water"],
+      "berry_pool": ["wacan", "passho", "babiri"],
+      "item_pool": ["water-stone", "mystic-water", "sea-incense", "wave-incense", "deep-sea-tooth"]
+    },
+    {
+      "id": "swamp",
+      "label": "Swamp",
+      "name_regex": "(?i)swamp|marsh|bog|mire",
+      "type_affinity": ["grass", "poison", "water"],
+      "berry_pool": ["kebia", "tanga", "shuca"],
+      "item_pool": ["poison-barb", "black-sludge", "binding-band"]
+    },
+    {
+      "id": "ice",
+      "label": "Ice",
+      "name_regex": "(?i)ice|frozen|snow|glacier|frost",
+      "type_affinity": ["ice"],
+      "berry_pool": ["yache", "pamtre"],
+      "item_pool": ["never-melt-ice", "icy-rock", "ice-stone", "snowball"]
+    },
+    {
+      "id": "ruins",
+      "label": "Ruins",
+      "name_regex": "(?i)ruins|tomb|tower|chamber",
+      "type_affinity": ["ghost", "psychic", "rock"],
+      "berry_pool": ["payapa", "colbur", "haban"],
+      "item_pool": ["odd-keystone", "twisted-spoon", "spell-tag", "ancient-power"]
+    },
+    {
+      "id": "urban",
+      "label": "Urban",
+      "name_regex": "(?i)city|town|gym",
+      "type_affinity": ["normal", "electric", "steel"],
+      "berry_pool": ["enigma", "ganlon"],
+      "item_pool": ["soothe-bell", "metronome", "white-herb", "mental-herb"]
+    },
+    {
+      "id": "sky",
+      "label": "Sky",
+      "name_regex": "(?i)sky|cloud|bell-tower-roof",
+      "type_affinity": ["flying", "dragon"],
+      "berry_pool": ["coba", "chilan"],
+      "item_pool": ["dragon-fang", "dragon-scale", "draco-plate"]
+    },
+    {
+      "id": "power-plant",
+      "label": "Power Plant",
+      "name_regex": "(?i)power|plant|reactor|lab",
+      "type_affinity": ["electric", "steel"],
+      "berry_pool": ["wepear", "pinap", "tamato"],
+      "item_pool": ["magnet", "thunder-stone", "electirizer", "metal-coat"]
+    },
+    {
+      "id": "graveyard",
+      "label": "Graveyard",
+      "name_regex": "(?i)grave|cemetery|lost-tower",
+      "type_affinity": ["ghost"],
+      "berry_pool": ["kasib", "rindo"],
+      "item_pool": ["spell-tag", "reaper-cloth", "cursed-body"]
+    },
+    {
+      "id": "farm",
+      "label": "Farm",
+      "name_regex": "(?i)farm|ranch|berry-fields",
+      "type_affinity": ["grass", "normal"],
+      "berry_pool": ["nanab", "razz", "bluk", "wepear"],
+      "item_pool": ["soothe-bell", "leftovers"]
+    },
+    {
+      "id": "wild",
+      "label": "Wild",
+      "name_regex": "",
+      "type_affinity": [],
+      "berry_pool": ["sitrus", "oran"],
+      "item_pool": ["potion", "ether"]
+    }
+  ],
+  "fallback_biome": "wild"
+}
