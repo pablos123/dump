@@ -28,3 +28,9 @@ setup() {
     [ "$status" -eq 0 ]
     [ "$output" = "303" ]
 }
+
+@test "encounter_compute_all_stats: missing base for stat returns non-zero" {
+    local base_json='[{"base_stat":108,"stat":{"name":"hp"}}]'
+    run encounter_compute_all_stats "$base_json" "31 31 31 31 31 31" "0 0 0 0 0 0" 100 "1.0 1.0 1.0 1.0 1.0 1.0"
+    [ "$status" -ne 0 ]
+}
