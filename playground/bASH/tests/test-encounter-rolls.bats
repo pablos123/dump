@@ -87,3 +87,25 @@ setup() {
         [ "$out" -ge 5 ] && [ "$out" -le 8 ]
     done
 }
+
+@test "encounter_roll_ability: forced normal yields slot1+slot2 only" {
+    POKIDLE_HIDDEN_ABILITY_RATE=0
+    local i out
+    for i in {1..30}; do
+        out="$(encounter_roll_ability treecko)"
+        local name hidden
+        name="$(jq -r '.name' <<< "$out")"
+        hidden="$(jq -r '.is_hidden' <<< "$out")"
+        [ "$hidden" = "false" ]
+        [ "$name" = "overgrow" ]
+    done
+}
+
+@test "encounter_roll_ability: forced hidden yields hidden when present" {
+    POKIDLE_HIDDEN_ABILITY_RATE=100
+    run encounter_roll_ability treecko
+    [ "$status" -eq 0 ]
+    local hidden
+    hidden="$(jq -r '.is_hidden' <<< "$output")"
+    [ "$hidden" = "true" ]
+}
