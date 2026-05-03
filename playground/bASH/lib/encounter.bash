@@ -137,3 +137,53 @@ encounter_roll_ability() {
     idx=$((RANDOM % n))
     jq -c ".[$idx]" <<< "$pool"
 }
+
+# Roll up to 4 moves from union of (level-up + machine + egg + tutor) where
+# level_learned_at <= level. Prints JSON array of move-name strings.
+encounter_roll_moves() {
+    local species="$1" level="$2"
+    local poke
+    poke="$(pokeapi_get "pokemon/$species")" || return 1
+
+    local candidates
+    candidates="$(jq -r --argjson lvl "$level" '
+        [
+          .moves[] |
+          .move.name as $name |
+          .version_group_details[] |
+          select(
+            (.move_learn_method.name | IN("level-up","machine","egg","tutor")) and
+            (.level_learned_at <= $lvl)
+          ) | $name
+        ] | unique | .[]
+    ' <<< "$poke")"
+
+    local arr=()
+    while IFS= read -r m; do
+        [[ -n "$m" ]] && arr+=("$m")
+    done <<< "$candidates"
+
+    local n="${#arr[@]}"
+    if (( n == 0 )); then
+        printf '[]'
+        return
+    fi
+
+    # shuffle and take 4
+    local picked=()
+    while (( ${#picked[@]} < 4 && ${#arr[@]} > 0 )); do
+        local idx=$((RANDOM % ${#arr[@]}))
+        picked+=("${arr[$idx]}")
+        # remove arr[idx]
+        arr=("${arr[@]:0:idx}" "${arr[@]:idx+1}")
+    done
+
+    # emit JSON array
+    printf '['
+    local i sep=""
+    for i in "${picked[@]}"; do
+        printf '%s"%s"' "$sep" "$i"
+        sep=","
+    done
+    printf ']'
+}
