@@ -180,3 +180,89 @@ teardown() {
     run db_state_get "k"
     [ "$output" = "b" ]
 }
+
+@test "db_insert_encounter handles single-quote in string fields" {
+    db_init
+    local sid
+    sid="$(db_open_biome_session 'cave' 1700000000)"
+    local enc
+    enc="$(jq -n --argjson sid "$sid" '{
+        session_id: $sid, encountered_at: 1700000100,
+        species: "o'\''ranberry-mon", dex_id: 1, level: 1,
+        nature: "ada'\''mant", ability: "inner-focus", is_hidden_ability: 0,
+        gender: "M", shiny: 0, held_berry: "king'\''s-rock-berry",
+        ivs: [1,2,3,4,5,6], evs: [0,0,0,0,0,0],
+        stats: [10,10,10,10,10,10],
+        moves: ["bi'\''te"], sprite_path: null
+    }')"
+    db_insert_encounter "$enc"
+    run db_query "SELECT species, nature, held_berry, moves_json FROM encounters;"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"o'ranberry-mon"* ]]
+    [[ "$output" == *"ada'mant"* ]]
+    [[ "$output" == *"king's-rock-berry"* ]]
+    [[ "$output" == *"bi'te"* ]]
+}
+
+@test "db_insert_item_drop handles single-quote in item name" {
+    db_init
+    local sid
+    sid="$(db_open_biome_session 'cave' 1700000000)"
+    db_insert_item_drop "$sid" 1700000300 "king's-rock" "/tmp/x.png"
+    run db_query "SELECT item FROM item_drops;"
+    [ "$output" = "king's-rock" ]
+}
+
+@test "db_list_encounters --limit rejects non-integer (SQL-injection guard)" {
+    db_init
+    run db_list_encounters --limit "1; DROP TABLE biome_sessions"
+    [ "$status" -ne 0 ]
+    run db_query "SELECT name FROM sqlite_master WHERE type='table' AND name='biome_sessions';"
+    [ "$output" = "biome_sessions" ]
+}
+
+@test "db_list_encounters --min-iv-total rejects non-integer" {
+    db_init
+    run db_list_encounters --min-iv-total "abc"
+    [ "$status" -ne 0 ]
+}
+
+@test "db_list_encounters rejects unknown flag" {
+    db_init
+    run db_list_encounters --bogus 1
+    [ "$status" -ne 0 ]
+}
+
+@test "db_list_item_drops --limit rejects non-integer" {
+    db_init
+    run db_list_item_drops --limit "1; DROP TABLE item_drops"
+    [ "$status" -ne 0 ]
+    run db_query "SELECT name FROM sqlite_master WHERE type='table' AND name='item_drops';"
+    [ "$output" = "item_drops" ]
+}
+
+@test "db_list_item_drops rejects unknown flag" {
+    db_init
+    run db_list_item_drops --bogus 1
+    [ "$status" -ne 0 ]
+}
+
+@test "db_open_biome_session rejects non-integer started_at" {
+    db_init
+    run db_open_biome_session "cave" "not-an-int"
+    [ "$status" -ne 0 ]
+}
+
+@test "db_close_biome_session rejects non-integer args" {
+    db_init
+    run db_close_biome_session "abc" 1700003600
+    [ "$status" -ne 0 ]
+    run db_close_biome_session 1 "abc"
+    [ "$status" -ne 0 ]
+}
+
+@test "db_insert_item_drop rejects non-integer numeric args" {
+    db_init
+    run db_insert_item_drop "abc" 1700000300 "everstone" ""
+    [ "$status" -ne 0 ]
+}
