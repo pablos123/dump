@@ -25,6 +25,9 @@ function http_get() {
         return 1
     fi
     printf '%s' "${body}"
+    # Be polite: pause after every live fetch (cache misses only — pokeapi_get
+    # short-circuits on cache hits).
+    sleep "${POKEAPI_RATE_LIMIT_SLEEP:-0.5}"
 }
 
 function http_download_url() {
