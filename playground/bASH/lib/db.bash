@@ -139,3 +139,14 @@ db_list_item_drops() {
     sql+=" ORDER BY d.encountered_at DESC LIMIT $limit;"
     db_query_json "$sql"
 }
+
+db_state_set() {
+    local key="$1" value="$2"
+    db_exec "INSERT INTO daemon_state(key, value) VALUES ('${key//\'/\'\'}', '${value//\'/\'\'}')
+             ON CONFLICT(key) DO UPDATE SET value=excluded.value;"
+}
+
+db_state_get() {
+    local key="$1"
+    db_query "SELECT value FROM daemon_state WHERE key='${key//\'/\'\'}';"
+}

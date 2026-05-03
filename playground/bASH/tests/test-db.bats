@@ -159,3 +159,24 @@ teardown() {
     n="$(jq 'length' <<< "$output")"
     [ "$n" = "2" ]
 }
+
+@test "db_state_set / db_state_get round-trip" {
+    db_init
+    db_state_set "last_pokemon_tick_target" "1700009999"
+    run db_state_get "last_pokemon_tick_target"
+    [ "$output" = "1700009999" ]
+}
+
+@test "db_state_get returns empty for missing key" {
+    db_init
+    run db_state_get "no_such_key"
+    [ -z "$output" ]
+}
+
+@test "db_state_set overwrites existing value" {
+    db_init
+    db_state_set "k" "a"
+    db_state_set "k" "b"
+    run db_state_get "k"
+    [ "$output" = "b" ]
+}
