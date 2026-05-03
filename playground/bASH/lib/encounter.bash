@@ -101,6 +101,10 @@ encounter_compute_all_stats() {
         local stat="${ENCOUNTER_STATS[$i]}"
         local base
         base="$(jq -r --arg s "$stat" '.[] | select(.stat.name==$s) | .base_stat' <<< "$base_json")"
+        if [[ -z "$base" || "$base" == "null" ]]; then
+            printf 'encounter_compute_all_stats: missing base for %s\n' "$stat" >&2
+            return 1
+        fi
         out+=("$(encounter_compute_stat "$stat" "$base" "${ivs[$i]}" "${evs[$i]}" "$level" "${mods[$i]}")")
     done
     printf '%s' "${out[*]}"
