@@ -6,7 +6,9 @@
 ENCOUNTER_STATS=(hp attack defense special-attack special-defense speed)
 
 encounter_natures_list() {
-    pokeapi_get "nature?limit=100" | jq -r '.results[].name'
+    local body
+    body="$(pokeapi_get "nature?limit=100")" || return 1
+    jq -r '.results[].name' <<< "$body"
 }
 
 # Print 6 space-separated floats: nature_mod for hp atk def spa spd spe.
@@ -114,7 +116,7 @@ encounter_compute_all_stats() {
 encounter_roll_ability() {
     local species="$1"
     local poke
-    poke="$(pokeapi_get "pokemon/$species")"
+    poke="$(pokeapi_get "pokemon/$species")" || return 1
     local hidden_rate="${POKIDLE_HIDDEN_ABILITY_RATE:-5}"
 
     local hidden_arr normal_arr
