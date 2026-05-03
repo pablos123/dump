@@ -57,11 +57,12 @@ setup() {
     done
 }
 
-@test "encounter_ev_split: total ≤ 510, each ≤ 252" {
+@test "encounter_ev_split: total exact, each ≤ 252" {
     local i
     for i in {1..50}; do
+        local want=$((RANDOM % 511))
         local out
-        out="$(encounter_ev_split "$((RANDOM % 511))")"
+        out="$(encounter_ev_split "$want")"
         local arr=($out)
         [ "${#arr[@]}" -eq 6 ]
         local total=0 v
@@ -70,7 +71,7 @@ setup() {
             [ "$v" -ge 0 ]
             total=$((total + v))
         done
-        [ "$total" -le 510 ]
+        [ "$total" -eq "$want" ]
     done
 }
 
