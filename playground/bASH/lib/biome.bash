@@ -75,3 +75,71 @@ biome_validate() {
 
     return 0
 }
+
+# Compute the union of types of every pokemon listed in an area's encounters.
+# Echoes one type-name per line.
+_biome_area_types() {
+    local area_json="$1"
+    local species
+    species="$(jq -r '.pokemon_encounters[].pokemon.name' <<< "$area_json")"
+    local s types
+    while IFS= read -r s; do
+        [[ -z "$s" ]] && continue
+        types="$(pokeapi_get "pokemon/$s" | jq -r '.types[].type.name')"
+        printf '%s\n' $types
+    done <<< "$species" | sort -u
+}
+
+# Classify a /location-area JSON to a biome id.
+# Algorithm: name_regex match = +10, count of intersecting types in type_affinity
+# adds to score. Highest scoring biome wins; on tie, first match by config order.
+biome_classify_area() {
+    local area_json="$1"
+    local cfg
+    cfg="$(biome_load)" || return 1
+    local area_name
+    area_name="$(jq -r '.name' <<< "$area_json")"
+
+    local area_types_list
+    area_types_list="$(_biome_area_types "$area_json")"
+
+    local best_id="" best_score=0
+    local i count
+    count="$(jq '.biomes | length' <<< "$cfg")"
+
+    for ((i=0; i<count; i++)); do
+        local id regex affinity
+        id="$(jq -r ".biomes[$i].id" <<< "$cfg")"
+        regex="$(jq -r ".biomes[$i].name_regex" <<< "$cfg")"
+        affinity="$(jq -r ".biomes[$i].type_affinity[]?" <<< "$cfg")"
+
+        local score=0
+        local pat="$regex"
+        local flags="-E"
+        if [[ "$pat" == *"(?i)"* ]]; then
+            pat="${pat//\(?i\)/}"
+            flags="-Ei"
+        fi
+        if [[ -n "$pat" ]] && grep $flags -q "$pat" <<< "$area_name"; then
+            score=$((score + 10))
+        fi
+        local t
+        while IFS= read -r t; do
+            [[ -z "$t" ]] && continue
+            if grep -Fxq "$t" <<< "$area_types_list"; then
+                score=$((score + 1))
+            fi
+        done <<< "$affinity"
+
+        if (( score > best_score )); then
+            best_score=$score
+            best_id="$id"
+        fi
+    done
+
+    if (( best_score == 0 )); then
+        jq -r '.fallback_biome' <<< "$cfg"
+    else
+        printf '%s' "$best_id"
+    fi
+}
