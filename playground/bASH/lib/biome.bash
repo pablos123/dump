@@ -143,3 +143,27 @@ biome_classify_area() {
         printf '%s' "$best_id"
     fi
 }
+
+biome_pick_random() {
+    local ids n idx
+    mapfile -t ids < <(biome_ids)
+    n="${#ids[@]}"
+    (( n > 0 )) || { printf 'biome_pick_random: no biomes\n' >&2; return 1; }
+    idx=$((RANDOM % n))
+    printf '%s' "${ids[$idx]}"
+}
+
+biome_pick_random_excluding() {
+    local exclude="$1"
+    local ids filtered idx n
+    mapfile -t ids < <(biome_ids)
+    filtered=()
+    local id
+    for id in "${ids[@]}"; do
+        [[ "$id" != "$exclude" ]] && filtered+=("$id")
+    done
+    n="${#filtered[@]}"
+    (( n > 0 )) || { printf 'biome_pick_random_excluding: no eligible biome\n' >&2; return 1; }
+    idx=$((RANDOM % n))
+    printf '%s' "${filtered[$idx]}"
+}
