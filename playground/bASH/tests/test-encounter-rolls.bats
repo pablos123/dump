@@ -40,3 +40,8 @@ setup() {
     [ "${mods[4]}" = "1.0" ]
     [ "${mods[5]}" = "1.0" ]
 }
+
+@test "encounter_nature_mods: missing nature returns non-zero" {
+    run encounter_nature_mods does-not-exist
+    [ "$status" -ne 0 ]
+}

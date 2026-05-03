@@ -13,7 +13,7 @@ encounter_natures_list() {
 encounter_nature_mods() {
     local nature="$1"
     local nat
-    nat="$(pokeapi_get "nature/$nature")"
+    nat="$(pokeapi_get "nature/$nature")" || return 1
     local inc dec
     inc="$(jq -r '.increased_stat.name // ""' <<< "$nat")"
     dec="$(jq -r '.decreased_stat.name // ""' <<< "$nat")"
