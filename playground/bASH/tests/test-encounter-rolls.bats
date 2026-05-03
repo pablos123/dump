@@ -109,3 +109,22 @@ setup() {
     hidden="$(jq -r '.is_hidden' <<< "$output")"
     [ "$hidden" = "true" ]
 }
+
+@test "encounter_roll_moves: at level 5 returns 4 candidates ≤ level" {
+    # Treecko fixture has level-up moves at 1,3,6,11,17 + machine/egg/tutor (level 0)
+    # At level 5 candidates ≤5: pound(1), leer(3), giga-drain(0,machine), endeavor(0,egg), snatch(0,tutor) = 5 candidates
+    run encounter_roll_moves treecko 5
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq 'length' <<< "$output")"
+    [ "$n" = "4" ]
+}
+
+@test "encounter_roll_moves: at level 1 with limited pool returns 4 (or fewer if not enough)" {
+    # Level 1: pound(1) + machine + egg + tutor = 4
+    run encounter_roll_moves treecko 1
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq 'length' <<< "$output")"
+    [ "$n" = "4" ]
+}
