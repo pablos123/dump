@@ -51,3 +51,41 @@ teardown() {
     n="$(jq 'length' <<< "$output")"
     [ "$n" = "2" ]
 }
+
+@test "db_open_biome_session inserts and returns session id" {
+    db_init
+    local id
+    id="$(db_open_biome_session 'cave' 1700000000)"
+    [[ "$id" =~ ^[0-9]+$ ]]
+    run db_query "SELECT biome_id FROM biome_sessions WHERE id=$id;"
+    [ "$output" = "cave" ]
+}
+
+@test "db_close_biome_session sets ended_at" {
+    db_init
+    local id
+    id="$(db_open_biome_session 'cave' 1700000000)"
+    db_close_biome_session "$id" 1700003600
+    run db_query "SELECT ended_at FROM biome_sessions WHERE id=$id;"
+    [ "$output" = "1700003600" ]
+}
+
+@test "db_active_biome_session returns the open one" {
+    db_init
+    local id
+    id="$(db_open_biome_session 'cave' 1700000000)"
+    run db_active_biome_session
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"cave"* ]]
+    [[ "$output" == *"$id"* ]]
+}
+
+@test "db_active_biome_session returns empty when none open" {
+    db_init
+    local id
+    id="$(db_open_biome_session 'cave' 1700000000)"
+    db_close_biome_session "$id" 1700003600
+    run db_active_biome_session
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}

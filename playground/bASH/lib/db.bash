@@ -27,3 +27,18 @@ db_query() {
 db_query_json() {
     sqlite3 -json "$POKIDLE_DB_PATH" "$@"
 }
+
+db_open_biome_session() {
+    local biome="$1" started_at="$2"
+    db_query "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('${biome//\'/\'\'}', $started_at); SELECT last_insert_rowid();"
+}
+
+db_close_biome_session() {
+    local id="$1" ended_at="$2"
+    db_exec "UPDATE biome_sessions SET ended_at=$ended_at WHERE id=$id;"
+}
+
+# Prints "id\tbiome_id\tstarted_at" of the active session, or empty.
+db_active_biome_session() {
+    db_query "SELECT id, biome_id, started_at FROM biome_sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1;"
+}
