@@ -45,3 +45,44 @@ setup() {
     run encounter_nature_mods does-not-exist
     [ "$status" -ne 0 ]
 }
+
+@test "encounter_roll_ivs returns 6 ints in [0,31]" {
+    run encounter_roll_ivs
+    [ "$status" -eq 0 ]
+    local ivs=($output)
+    [ "${#ivs[@]}" -eq 6 ]
+    local i
+    for i in "${ivs[@]}"; do
+        [ "$i" -ge 0 ] && [ "$i" -le 31 ]
+    done
+}
+
+@test "encounter_ev_split: total ≤ 510, each ≤ 252" {
+    local i
+    for i in {1..50}; do
+        local out
+        out="$(encounter_ev_split "$((RANDOM % 511))")"
+        local arr=($out)
+        [ "${#arr[@]}" -eq 6 ]
+        local total=0 v
+        for v in "${arr[@]}"; do
+            [ "$v" -le 252 ]
+            [ "$v" -ge 0 ]
+            total=$((total + v))
+        done
+        [ "$total" -le 510 ]
+    done
+}
+
+@test "encounter_ev_split(0) = all zeros" {
+    run encounter_ev_split 0
+    [ "$output" = "0 0 0 0 0 0" ]
+}
+
+@test "encounter_roll_level: uniform within [min,max] inclusive" {
+    local i out
+    for i in {1..30}; do
+        out="$(encounter_roll_level 5 8)"
+        [ "$out" -ge 5 ] && [ "$out" -le 8 ]
+    done
+}

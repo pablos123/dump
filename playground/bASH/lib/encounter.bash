@@ -30,3 +30,40 @@ encounter_nature_mods() {
     done
     printf '%s' "${out[*]}"
 }
+
+encounter_roll_ivs() {
+    local i out=()
+    for i in {0..5}; do
+        out+=("$((RANDOM % 32))")
+    done
+    printf '%s' "${out[*]}"
+}
+
+encounter_ev_split() {
+    local total="$1"
+    local evs=(0 0 0 0 0 0)
+    local remaining="$total"
+    local guard=0
+    while (( remaining > 0 )); do
+        (( guard++ > 10000 )) && break
+        local i=$((RANDOM % 6))
+        local headroom=$((252 - evs[i]))
+        (( headroom <= 0 )) && {
+            local all=1 j
+            for j in "${evs[@]}"; do (( j < 252 )) && { all=0; break; }; done
+            (( all )) && break
+            continue
+        }
+        local cap=$((headroom < remaining ? headroom : remaining))
+        local delta=$(( (RANDOM % cap) + 1 ))
+        evs[i]=$((evs[i] + delta))
+        remaining=$((remaining - delta))
+    done
+    printf '%s' "${evs[*]}"
+}
+
+encounter_roll_level() {
+    local lo="$1" hi="$2"
+    local span=$((hi - lo + 1))
+    printf '%d' "$((lo + RANDOM % span))"
+}
