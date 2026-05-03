@@ -117,7 +117,7 @@ biome_classify_area() {
         local pat="$regex"
         local flags="-E"
         if [[ "$pat" == *"(?i)"* ]]; then
-            pat="${pat//\(?i\)/}"
+            pat="${pat//'(?i)'/}"
             flags="-Ei"
         fi
         if [[ -n "$pat" ]] && grep $flags -q "$pat" <<< "$area_name"; then
