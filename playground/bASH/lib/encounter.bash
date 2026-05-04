@@ -256,3 +256,133 @@ encounter_walk_chain() {
         [walk(.chain; 0)]
     ' <<< "$chain_json"
 }
+
+# Map version-group/version name to generation 1-9. Static.
+encounter_gen_of() {
+    local v="$1"
+    case "$v" in
+        red|blue|yellow) echo 1 ;;
+        gold|silver|crystal) echo 2 ;;
+        ruby|sapphire|emerald|firered|leafgreen) echo 3 ;;
+        diamond|pearl|platinum|heartgold|soulsilver) echo 4 ;;
+        black|white|black-2|white-2) echo 5 ;;
+        x|y|omega-ruby|alpha-sapphire) echo 6 ;;
+        sun|moon|ultra-sun|ultra-moon|lets-go-pikachu|lets-go-eevee) echo 7 ;;
+        sword|shield|brilliant-diamond|shining-pearl|legends-arceus) echo 8 ;;
+        scarlet|violet) echo 9 ;;
+        *) echo 0 ;;
+    esac
+}
+
+# encounter_build_pool <areas_json_array> <gen_csv>
+# Emits JSON array [{species, min, max, pct}].
+encounter_build_pool() {
+    local areas_json="$1" gen_csv="$2"
+
+    local raw='[]'
+    local area
+    while IFS= read -r area; do
+        [[ -z "$area" ]] && continue
+        local area_json
+        area_json="$(pokeapi_get "location-area/$area")" || return 1
+        local rows
+        rows="$(jq -c '
+            .pokemon_encounters[] |
+            .pokemon.name as $sp |
+            .version_details[] |
+            .version.name as $ver |
+            .encounter_details[] |
+            {species: $sp, min: .min_level, max: .max_level, chance: .chance, version: $ver}
+        ' <<< "$area_json")"
+        local row
+        while IFS= read -r row; do
+            [[ -z "$row" ]] && continue
+            if [[ -n "$gen_csv" ]]; then
+                local v g
+                v="$(jq -r '.version' <<< "$row")"
+                g="$(encounter_gen_of "$v")"
+                local match=0
+                IFS=',' read -ra wanted <<< "$gen_csv"
+                local w
+                for w in "${wanted[@]}"; do
+                    [[ "$w" == "$g" ]] && match=1 && break
+                done
+                (( match )) || continue
+            fi
+            raw="$(jq -c --argjson r "$row" '. + [$r]' <<< "$raw")"
+        done <<< "$rows"
+    done <<< "$(jq -r '.[]' <<< "$areas_json")"
+
+    local base
+    base="$(jq -c '
+        group_by(.species) | map({
+            species: (.[0].species),
+            min: ([.[].min] | min),
+            max: ([.[].max] | max),
+            pct: ([.[].chance] | add)
+        })
+    ' <<< "$raw")"
+
+    local expanded='[]'
+    local entries
+    entries="$(jq -c '.[]' <<< "$base")"
+    local entry
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
+        local sp min max pct delta
+        sp="$(jq -r '.species' <<< "$entry")"
+        min="$(jq -r '.min' <<< "$entry")"
+        max="$(jq -r '.max' <<< "$entry")"
+        pct="$(jq -r '.pct' <<< "$entry")"
+        delta=$((max - min))
+
+        local spec chain_url chain_id
+        spec="$(pokeapi_get "pokemon-species/$sp")" || return 1
+        chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
+        chain_id="$(basename -- "${chain_url%/}")"
+
+        local chain stages
+        chain="$(pokeapi_get "evolution-chain/$chain_id")" || return 1
+        stages="$(encounter_walk_chain "$chain")"
+
+        local new_entries
+        new_entries="$(jq -c \
+            --argjson root_min "$min" --argjson root_max "$max" --argjson delta "$delta" \
+            --argjson root_pct "$pct" \
+            --argjson stages "$stages" '
+            $stages
+            | sort_by(.stage_idx)
+            | reduce .[] as $s (
+                {expanded: [], by_idx: {}};
+                if $s.stage_idx == 0 then
+                    .expanded += [{species: $s.species, min: $root_min, max: $root_max,
+                                   pct: $root_pct}]
+                    | .by_idx[($s.stage_idx|tostring)] = $root_max
+                else
+                    (.by_idx[(($s.stage_idx - 1)|tostring)]) as $parent_max |
+                    (if $s.min_level_evo != null then $s.min_level_evo
+                     else ($parent_max + 10) end) as $emin |
+                    .expanded += [{
+                        species: $s.species,
+                        min: $emin,
+                        max: ($emin + $delta),
+                        pct: ($root_pct / pow(2; $s.stage_idx))
+                    }]
+                    | .by_idx[($s.stage_idx|tostring)] = ($emin + $delta)
+                end
+              )
+            | .expanded
+        ' <<< 'null')"
+        expanded="$(jq -c --argjson e "$new_entries" '. + $e' <<< "$expanded")"
+    done <<< "$entries"
+
+    local total
+    total="$(jq '[.[].pct] | add' <<< "$expanded")"
+    if [[ "$total" == "0" || "$total" == "null" ]]; then
+        printf '%s' "$expanded"
+        return
+    fi
+    jq -c --argjson total "$total" '
+        map(.pct = (.pct * 100 / $total))
+    ' <<< "$expanded"
+}
