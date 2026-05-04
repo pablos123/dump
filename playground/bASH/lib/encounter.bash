@@ -510,3 +510,32 @@ encounter_roll_pokemon() {
             moves: $moves, sprite_url: $sprite
         }'
 }
+
+# encounter_roll_item <biome_id>
+# Emits {"item": "<name>", "sprite_url": "<url|empty>"}.
+encounter_roll_item() {
+    local biome_id="$1"
+    if ! command -v biome_get > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
+    fi
+    local biome pool
+    biome="$(biome_get "$biome_id")" || return 1
+    pool="$(jq -c '.item_pool' <<< "$biome")"
+    local n
+    n="$(jq 'length' <<< "$pool")"
+    if (( n == 0 )); then
+        biome="$(biome_get wild)" || return 1
+        pool="$(jq -c '.item_pool' <<< "$biome")"
+        n="$(jq 'length' <<< "$pool")"
+    fi
+    (( n > 0 )) || return 1
+    local idx=$((RANDOM % n))
+    local name
+    name="$(jq -r ".[$idx]" <<< "$pool")"
+    local item_json
+    item_json="$(pokeapi_get "item/$name")" || return 1
+    local sprite
+    sprite="$(jq -r '.sprites.default // ""' <<< "$item_json")"
+    jq -n --arg item "$name" --arg sprite "$sprite" '{item: $item, sprite_url: $sprite}'
+}
