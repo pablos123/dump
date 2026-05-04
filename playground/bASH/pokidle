@@ -323,8 +323,60 @@ pokidle_clean() {
     printf 'cleaned\n'
 }
 
-pokidle_rebuild_pool()     { printf 'pokidle rebuild-pool: not implemented yet\n' >&2; return 1; }
-pokidle_rebuild_biomes()   { printf 'pokidle rebuild-biomes: not implemented yet\n' >&2; return 1; }
+pokidle_rebuild_pool() {
+    local target="${1-}"
+    local biomes
+    if [[ -n "$target" ]]; then
+        biomes="$target"
+    else
+        biomes="$(biome_ids)"
+    fi
+    local b
+    while IFS= read -r b; do
+        [[ -z "$b" ]] && continue
+        local areas_path="$POKIDLE_CACHE_DIR/biome-areas/$b.json"
+        if [[ ! -f "$areas_path" ]]; then
+            printf 'rebuild-pool: no area list for biome %s — run rebuild-biomes first\n' "$b" >&2
+            continue
+        fi
+        local areas
+        areas="$(cat "$areas_path")"
+        local pool
+        pool="$(encounter_build_pool "$areas" "${POKIDLE_GEN:-}")"
+        encounter_pool_save "$b" "$pool"
+        printf 'rebuilt pool: %s (%s entries)\n' "$b" "$(jq 'length' <<< "$pool")"
+    done <<< "$biomes"
+}
+
+pokidle_rebuild_biomes() {
+    mkdir -p -- "$POKIDLE_CACHE_DIR/biome-areas"
+    local list
+    list="$(pokeapi_get "location-area?limit=1500")"
+    local areas_by_biome
+    areas_by_biome="$(jq -n '{}')"
+
+    local name
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        local area
+        area="$(pokeapi_get "location-area/$name")" || continue
+        local biome
+        biome="$(biome_classify_area "$area")"
+        areas_by_biome="$(jq --arg b "$biome" --arg a "$name" '
+            .[$b] = ((.[$b] // []) + [$a])
+        ' <<< "$areas_by_biome")"
+        printf '%s -> %s\n' "$name" "$biome"
+    done < <(jq -r '.results[].name' <<< "$list")
+
+    local b
+    while IFS= read -r b; do
+        [[ -z "$b" ]] && continue
+        local arr
+        arr="$(jq -c --arg b "$b" '.[$b] // []' <<< "$areas_by_biome")"
+        printf '%s' "$arr" > "$POKIDLE_CACHE_DIR/biome-areas/$b.json"
+    done < <(biome_ids)
+    printf 'rebuilt biome-area assignments\n'
+}
 pokidle_setup()            { printf 'pokidle setup: see Plan C\n' >&2; return 1; }
 pokidle_uninstall()        { printf 'pokidle uninstall: see Plan C\n' >&2; return 1; }
 pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
