@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# pokidle — passive pokemon encounter daemon + CLI.
+
+set -euo pipefail
+
+POKIDLE_REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+export POKIDLE_REPO_ROOT
+
+: "${POKIDLE_CONFIG_DIR:=${XDG_CONFIG_HOME:-$HOME/.config}/pokidle}"
+: "${POKIDLE_CACHE_DIR:=${XDG_CACHE_HOME:-$HOME/.cache}/pokidle}"
+: "${POKIDLE_DATA_DIR:=${XDG_DATA_HOME:-$HOME/.local/share}/pokidle}"
+: "${POKIDLE_DB_PATH:=$POKIDLE_DATA_DIR/pokidle.db}"
+: "${POKEAPI_RATE_LIMIT_SLEEP:=${POKIDLE_RATE_LIMIT_SLEEP:-0.5}}"
+export POKIDLE_CONFIG_DIR POKIDLE_CACHE_DIR POKIDLE_DATA_DIR POKIDLE_DB_PATH POKEAPI_RATE_LIMIT_SLEEP
+
+# shellcheck source=lib/cache.bash
+source "$POKIDLE_REPO_ROOT/lib/cache.bash"
+# shellcheck source=lib/http.bash
+source "$POKIDLE_REPO_ROOT/lib/http.bash"
+# shellcheck source=lib/api.bash
+source "$POKIDLE_REPO_ROOT/lib/api.bash"
+# shellcheck source=lib/db.bash
+source "$POKIDLE_REPO_ROOT/lib/db.bash"
+# shellcheck source=lib/biome.bash
+source "$POKIDLE_REPO_ROOT/lib/biome.bash"
+# shellcheck source=lib/encounter.bash
+source "$POKIDLE_REPO_ROOT/lib/encounter.bash"
+# shellcheck source=lib/notify.bash
+source "$POKIDLE_REPO_ROOT/lib/notify.bash"
+# shellcheck source=lib/showdown.bash
+source "$POKIDLE_REPO_ROOT/lib/showdown.bash"
+
+usage() {
+    cat <<'EOF'
+pokidle — passive Pokémon encounter daemon.
+
+Usage:
+  pokidle <command> [args...]
+
+Commands:
+  daemon                  Run main loop (used by systemd unit)
+  tick [pokemon|item]     Force a single roll now
+                            --dry-run    Skip DB write
+                            --no-notify  Skip notify-send
+                            --json       Emit JSON to stdout
+  list [filters]          Pretty list of pokemon encounters
+  items [filters]         Pretty list of item drops
+  stats                   Aggregates: totals, shinies, by biome, top species
+  current                 Show current biome + counts
+  rebuild-pool [biome]    Force pool rebuild (one or all)
+  rebuild-biomes          Re-classify all /location-area
+  clean [--yes]           Purge http cache + pools
+  setup [--enable]        Install user systemd unit + config dirs
+  uninstall               Disable + remove unit (DB/cache untouched)
+  status                  systemctl status + last tick + current biome
+  help, -h, --help        Show this help
+
+See also: docs/superpowers/specs/2026-05-02-pokidle-design.md
+EOF
+}
+
+# Stubs filled in by subsequent tasks.
+pokidle_daemon()           { printf 'pokidle daemon: see Plan C\n' >&2; return 1; }
+pokidle_tick()             { printf 'pokidle tick: not implemented yet\n' >&2; return 1; }
+pokidle_list()             { printf 'pokidle list: not implemented yet\n' >&2; return 1; }
+pokidle_items()            { printf 'pokidle items: not implemented yet\n' >&2; return 1; }
+pokidle_stats()            { printf 'pokidle stats: not implemented yet\n' >&2; return 1; }
+pokidle_current()          { printf 'pokidle current: not implemented yet\n' >&2; return 1; }
+pokidle_rebuild_pool()     { printf 'pokidle rebuild-pool: not implemented yet\n' >&2; return 1; }
+pokidle_rebuild_biomes()   { printf 'pokidle rebuild-biomes: not implemented yet\n' >&2; return 1; }
+pokidle_clean()            { printf 'pokidle clean: not implemented yet\n' >&2; return 1; }
+pokidle_setup()            { printf 'pokidle setup: see Plan C\n' >&2; return 1; }
+pokidle_uninstall()        { printf 'pokidle uninstall: see Plan C\n' >&2; return 1; }
+pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
+
+cmd="${1-}"
+[[ -n "$cmd" ]] || { usage >&2; exit 2; }
+shift
+
+case "$cmd" in
+    daemon)         pokidle_daemon "$@" ;;
+    tick)           pokidle_tick "$@" ;;
+    list)           pokidle_list "$@" ;;
+    items)          pokidle_items "$@" ;;
+    stats)          pokidle_stats "$@" ;;
+    current)        pokidle_current "$@" ;;
+    rebuild-pool)   pokidle_rebuild_pool "$@" ;;
+    rebuild-biomes) pokidle_rebuild_biomes "$@" ;;
+    clean)          pokidle_clean "$@" ;;
+    setup)          pokidle_setup "$@" ;;
+    uninstall)      pokidle_uninstall "$@" ;;
+    status)         pokidle_status "$@" ;;
+    help|-h|--help) usage ;;
+    *) printf 'unknown command: %s\n' "$cmd" >&2; usage >&2; exit 2 ;;
+esac
