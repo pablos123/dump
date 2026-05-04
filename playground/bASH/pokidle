@@ -59,6 +59,24 @@ See also: docs/superpowers/specs/2026-05-02-pokidle-design.md
 EOF
 }
 
+# Tests source the script for unit testing helper functions.
+if [[ "${POKIDLE_TEST_SOURCE_ONLY:-0}" == "1" ]]; then
+    POKIDLE_TEST_SKIP_DISPATCH=1
+fi
+
+# Daemon scheduler helpers.
+_pokidle_next_tick_target() {
+    local now="$1" interval="$2"
+    local next_hour=$(( (now / 3600 + 1) * 3600 ))
+    printf '%d' "$(( next_hour + RANDOM % interval ))"
+}
+
+_pokidle_should_rotate_biome() {
+    local started_at="$1" now="$2"
+    local hours="${POKIDLE_BIOME_HOURS:-3}"
+    (( now - started_at >= hours * 3600 ))
+}
+
 # Stubs filled in by subsequent tasks.
 pokidle_daemon()           { printf 'pokidle daemon: see Plan C\n' >&2; return 1; }
 pokidle_tick() {
@@ -381,23 +399,25 @@ pokidle_setup()            { printf 'pokidle setup: see Plan C\n' >&2; return 1;
 pokidle_uninstall()        { printf 'pokidle uninstall: see Plan C\n' >&2; return 1; }
 pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
 
-cmd="${1-}"
-[[ -n "$cmd" ]] || { usage >&2; exit 2; }
-shift
+if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
+    cmd="${1-}"
+    [[ -n "$cmd" ]] || { usage >&2; exit 2; }
+    shift
 
-case "$cmd" in
-    daemon)         pokidle_daemon "$@" ;;
-    tick)           pokidle_tick "$@" ;;
-    list)           pokidle_list "$@" ;;
-    items)          pokidle_items "$@" ;;
-    stats)          pokidle_stats "$@" ;;
-    current)        pokidle_current "$@" ;;
-    rebuild-pool)   pokidle_rebuild_pool "$@" ;;
-    rebuild-biomes) pokidle_rebuild_biomes "$@" ;;
-    clean)          pokidle_clean "$@" ;;
-    setup)          pokidle_setup "$@" ;;
-    uninstall)      pokidle_uninstall "$@" ;;
-    status)         pokidle_status "$@" ;;
-    help|-h|--help) usage ;;
-    *) printf 'unknown command: %s\n' "$cmd" >&2; usage >&2; exit 2 ;;
-esac
+    case "$cmd" in
+        daemon)         pokidle_daemon "$@" ;;
+        tick)           pokidle_tick "$@" ;;
+        list)           pokidle_list "$@" ;;
+        items)          pokidle_items "$@" ;;
+        stats)          pokidle_stats "$@" ;;
+        current)        pokidle_current "$@" ;;
+        rebuild-pool)   pokidle_rebuild_pool "$@" ;;
+        rebuild-biomes) pokidle_rebuild_biomes "$@" ;;
+        clean)          pokidle_clean "$@" ;;
+        setup)          pokidle_setup "$@" ;;
+        uninstall)      pokidle_uninstall "$@" ;;
+        status)         pokidle_status "$@" ;;
+        help|-h|--help) usage ;;
+        *) printf 'unknown command: %s\n' "$cmd" >&2; usage >&2; exit 2 ;;
+    esac
+fi
