@@ -158,7 +158,76 @@ pokidle_tick() {
             ;;
     esac
 }
-pokidle_list()             { printf 'pokidle list: not implemented yet\n' >&2; return 1; }
+pokidle_list() {
+    db_init
+    local export_mode=0 json_mode=0 args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --export) export_mode=1; shift ;;
+            --json)   json_mode=1; shift ;;
+            *)        args+=("$1"); shift ;;
+        esac
+    done
+
+    local rows
+    rows="$(db_list_encounters "${args[@]}")"
+
+    if (( export_mode )); then
+        local enc
+        local sep=""
+        while IFS= read -r enc; do
+            [[ -z "$enc" ]] && continue
+            local norm
+            norm="$(jq -c '{
+                species, level, nature, ability, is_hidden_ability,
+                shiny, held_berry,
+                ivs: [.iv_hp,.iv_atk,.iv_def,.iv_spa,.iv_spd,.iv_spe],
+                evs: [.ev_hp,.ev_atk,.ev_def,.ev_spa,.ev_spd,.ev_spe],
+                moves: (.moves_json | fromjson)
+            }' <<< "$enc")"
+            printf '%s' "$sep"
+            showdown_format "$norm"
+            sep=$'\n'
+        done < <(jq -c '.[]' <<< "$rows")
+        return
+    fi
+
+    if (( json_mode )); then
+        printf '%s\n' "$rows"
+        return
+    fi
+
+    local enc
+    while IFS= read -r enc; do
+        [[ -z "$enc" ]] && continue
+        local sp lvl nat abil gender shiny biome ts
+        sp="$(jq -r '.species' <<< "$enc")"
+        lvl="$(jq -r '.level' <<< "$enc")"
+        nat="$(jq -r '.nature' <<< "$enc")"
+        abil="$(jq -r '.ability' <<< "$enc")"
+        gender="$(jq -r '.gender' <<< "$enc")"
+        shiny="$(jq -r '.shiny' <<< "$enc")"
+        biome="$(jq -r '.biome_id' <<< "$enc")"
+        ts="$(jq -r '.encountered_at' <<< "$enc")"
+        local sprite
+        sprite="$(jq -r '.sprite_path // ""' <<< "$enc")"
+        printf '%s   %s   Lv.%s %s%s\n' \
+            "$(date -d "@$ts" '+%F %H:%M')" "$biome" "$lvl" "$sp" \
+            "$( [[ "$shiny" == "1" ]] && printf ' ✨' )"
+        printf '   %s · %s · %s\n' "$nat" "$abil" "$gender"
+        local ivs evs stats moves
+        ivs="$(jq -r '"\(.iv_hp)/\(.iv_atk)/\(.iv_def)/\(.iv_spa)/\(.iv_spd)/\(.iv_spe)"' <<< "$enc")"
+        evs="$(jq -r '"\(.ev_hp)/\(.ev_atk)/\(.ev_def)/\(.ev_spa)/\(.ev_spd)/\(.ev_spe)"' <<< "$enc")"
+        stats="$(jq -r '"\(.stat_hp)/\(.stat_atk)/\(.stat_def)/\(.stat_spa)/\(.stat_spd)/\(.stat_spe)"' <<< "$enc")"
+        moves="$(jq -r '.moves_json | fromjson | join(", ")' <<< "$enc")"
+        printf '   Stats: %s\n   IVs:   %s\n   EVs:   %s\n   Moves: %s\n' \
+            "$stats" "$ivs" "$evs" "$moves"
+        if [[ -n "$sprite" && "$sprite" != "null" ]] && command -v catimg > /dev/null; then
+            catimg -w "${POKIDLE_CATIMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
+        fi
+        printf '\n'
+    done < <(jq -c '.[]' <<< "$rows")
+}
 pokidle_items()            { printf 'pokidle items: not implemented yet\n' >&2; return 1; }
 pokidle_stats()            { printf 'pokidle stats: not implemented yet\n' >&2; return 1; }
 pokidle_current() {
