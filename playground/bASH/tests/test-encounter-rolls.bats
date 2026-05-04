@@ -128,3 +128,55 @@ setup() {
     n="$(jq 'length' <<< "$output")"
     [ "$n" = "4" ]
 }
+
+@test "encounter_roll_gender: gender_rate -1 returns genderless" {
+    run encounter_roll_gender magnemite
+    [ "$status" -eq 0 ]
+    [ "$output" = "genderless" ]
+}
+
+@test "encounter_roll_gender: gender_rate 1 yields ~12.5% F" {
+    local f=0 m=0 i out
+    for i in {1..200}; do
+        out="$(encounter_roll_gender treecko)"
+        case "$out" in
+            F) f=$((f+1)) ;;
+            M) m=$((m+1)) ;;
+        esac
+    done
+    [ "$f" -ge 5 ]   && [ "$f" -le 60 ]
+    [ "$m" -ge 140 ] && [ "$m" -le 195 ]
+}
+
+@test "encounter_roll_shiny: rate 1 always shiny" {
+    POKIDLE_SHINY_RATE=1
+    run encounter_roll_shiny
+    [ "$status" -eq 0 ]
+    [ "$output" = "1" ]
+}
+
+@test "encounter_roll_shiny: rate 1000000 almost never shiny" {
+    POKIDLE_SHINY_RATE=1000000
+    local i s out
+    s=0
+    for i in {1..50}; do
+        out="$(encounter_roll_shiny)"
+        s=$((s + out))
+    done
+    [ "$s" -le 1 ]
+}
+
+@test "encounter_roll_held_berry: 0% rate returns null" {
+    POKIDLE_BERRY_RATE=0
+    run encounter_roll_held_berry "cave"
+    [ "$status" -eq 0 ]
+    [ "$output" = "null" ]
+}
+
+@test "encounter_roll_held_berry: 100% rate returns one of biome berries" {
+    POKIDLE_BERRY_RATE=100
+    run encounter_roll_held_berry "cave"
+    [ "$status" -eq 0 ]
+    # cave berry_pool: rawst, aspear, chesto, lum
+    [[ "$output" =~ ^(rawst|aspear|chesto|lum)$ ]]
+}

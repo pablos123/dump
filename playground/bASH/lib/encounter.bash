@@ -187,3 +187,58 @@ encounter_roll_moves() {
     done
     printf ']'
 }
+
+encounter_roll_gender() {
+    local species="$1"
+    local spec
+    spec="$(pokeapi_get "pokemon-species/$species")" || return 1
+    local gr
+    gr="$(jq -r '.gender_rate' <<< "$spec")"
+    if [[ "$gr" == "-1" ]]; then
+        printf 'genderless'
+        return
+    fi
+    # gr = female chance / 8. Roll 0..7.
+    local roll=$((RANDOM % 8))
+    if (( roll < gr )); then
+        printf 'F'
+    else
+        printf 'M'
+    fi
+}
+
+encounter_roll_shiny() {
+    local rate="${POKIDLE_SHINY_RATE:-1024}"
+    local roll=$((RANDOM * 32768 + RANDOM))
+    if (( roll % rate == 0 )); then
+        printf '1'
+    else
+        printf '0'
+    fi
+}
+
+# Print "null" when no berry rolled, else berry name.
+encounter_roll_held_berry() {
+    local biome_id="$1"
+    local rate="${POKIDLE_BERRY_RATE:-15}"
+    local roll=$((RANDOM % 100))
+    if (( roll >= rate )); then
+        printf 'null'
+        return
+    fi
+    if ! command -v biome_get > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
+    fi
+    local biome
+    biome="$(biome_get "$biome_id")" || return 1
+    local berries
+    mapfile -t berries < <(jq -r '.berry_pool[]' <<< "$biome")
+    local n="${#berries[@]}"
+    if (( n == 0 )); then
+        printf 'null'
+        return
+    fi
+    local idx=$((RANDOM % n))
+    printf '%s' "${berries[$idx]}"
+}
