@@ -78,7 +78,91 @@ _pokidle_should_rotate_biome() {
 }
 
 # Stubs filled in by subsequent tasks.
-pokidle_daemon()           { printf 'pokidle daemon: see Plan C\n' >&2; return 1; }
+pokidle_daemon() {
+    db_init
+    biome_validate || { printf 'daemon: biome config invalid; aborting\n' >&2; return 1; }
+
+    local active biome sid biome_started_at
+    active="$(db_active_biome_session)"
+    if [[ -z "$active" ]]; then
+        biome="$(biome_pick_random)"
+        biome_started_at="$(date +%s)"
+        sid="$(db_open_biome_session "$biome" "$biome_started_at")"
+    else
+        IFS=$'\t' read -r sid biome biome_started_at <<< "$active"
+        # If active session is older than the rotation window, close + rotate now.
+        if _pokidle_should_rotate_biome "$biome_started_at" "$(date +%s)"; then
+            db_close_biome_session "$sid" "$(date +%s)"
+            biome="$(biome_pick_random_excluding "$biome")"
+            biome_started_at="$(date +%s)"
+            sid="$(db_open_biome_session "$biome" "$biome_started_at")"
+            _pokidle_announce_biome "$biome"
+        fi
+    fi
+
+    # Restore tick targets, or schedule fresh.
+    local now next_pokemon next_item
+    now="$(date +%s)"
+    next_pokemon="$(db_state_get last_pokemon_tick_target)"
+    next_item="$(db_state_get last_item_tick_target)"
+    [[ -z "$next_pokemon" || "$next_pokemon" -le "$now" ]] && \
+        next_pokemon="$(_pokidle_next_tick_target "$now" "${POKIDLE_POKEMON_INTERVAL:-3600}")" && \
+        db_state_set last_pokemon_tick_target "$next_pokemon"
+    [[ -z "$next_item" || "$next_item" -le "$now" ]] && \
+        next_item="$(_pokidle_next_tick_target "$now" "${POKIDLE_ITEM_INTERVAL:-3600}")" && \
+        db_state_set last_item_tick_target "$next_item"
+
+    trap '_pokidle_shutdown $sid; exit 0' INT TERM
+
+    while :; do
+        now="$(date +%s)"
+
+        if _pokidle_should_rotate_biome "$biome_started_at" "$now"; then
+            db_close_biome_session "$sid" "$now"
+            biome="$(biome_pick_random_excluding "$biome")"
+            biome_started_at="$now"
+            sid="$(db_open_biome_session "$biome" "$biome_started_at")"
+            _pokidle_announce_biome "$biome"
+        fi
+
+        if (( now >= next_pokemon )); then
+            pokidle_tick pokemon || printf 'daemon: pokemon tick failed (continuing)\n' >&2
+            next_pokemon="$(_pokidle_next_tick_target "$now" "${POKIDLE_POKEMON_INTERVAL:-3600}")"
+            db_state_set last_pokemon_tick_target "$next_pokemon"
+        fi
+        if (( now >= next_item )); then
+            pokidle_tick item || printf 'daemon: item tick failed (continuing)\n' >&2
+            next_item="$(_pokidle_next_tick_target "$now" "${POKIDLE_ITEM_INTERVAL:-3600}")"
+            db_state_set last_item_tick_target "$next_item"
+        fi
+
+        local biome_end=$((biome_started_at + ${POKIDLE_BIOME_HOURS:-3} * 3600))
+        local next_event=$(( next_pokemon < next_item ? next_pokemon : next_item ))
+        (( biome_end < next_event )) && next_event="$biome_end"
+        local sleep_for=$(( next_event - now ))
+        (( sleep_for < 1 )) && sleep_for=1
+        sleep "$sleep_for"
+    done
+}
+
+_pokidle_announce_biome() {
+    local biome="$1"
+    local label pool_size item_size
+    label="$(biome_get "$biome" | jq -r '.label')"
+    if [[ -f "$(encounter_pool_path "$biome")" ]]; then
+        pool_size="$(jq '.entries | length' "$(encounter_pool_path "$biome")")"
+    else
+        pool_size=0
+    fi
+    item_size="$(biome_get "$biome" | jq '.item_pool | length')"
+    notify_biome_change "$label" "$pool_size" "$item_size"
+}
+
+_pokidle_shutdown() {
+    local sid="$1"
+    # Don't close session; daemon may restart.
+    printf 'pokidle: shutting down (session #%s left open)\n' "$sid" >&2
+}
 pokidle_tick() {
     local kind="${1:-pokemon}"
     shift || true
