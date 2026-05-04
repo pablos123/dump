@@ -76,3 +76,31 @@ setup() {
     vaporeon_min="$(jq -r '.[] | select(.species=="vaporeon") | .min_level_evo // "null"' <<< "$output")"
     [ "$vaporeon_min" = "null" ]
 }
+
+@test "encounter_pool_path returns biome-specific cache path" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    run encounter_pool_path cave
+    [ "$output" = "$POKIDLE_CACHE_DIR/pools/cave.json" ]
+}
+
+@test "encounter_pool_save and encounter_pool_load round-trip" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    local pool='[{"species":"zubat","min":5,"max":8,"pct":50},{"species":"golbat","min":22,"max":25,"pct":50}]'
+    encounter_pool_save cave "$pool"
+    run encounter_pool_load cave
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq '.entries | length' <<< "$output")"
+    [ "$n" = "2" ]
+}
+
+@test "encounter_roll_pool_entry returns one of the pool species" {
+    local pool='{"entries":[{"species":"zubat","min":5,"max":8,"pct":100}]}'
+    run encounter_roll_pool_entry "$pool"
+    [ "$status" -eq 0 ]
+    local sp
+    sp="$(jq -r '.species' <<< "$output")"
+    [ "$sp" = "zubat" ]
+}

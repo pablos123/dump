@@ -386,3 +386,52 @@ encounter_build_pool() {
         map(.pct = (.pct * 100 / $total))
     ' <<< "$expanded"
 }
+
+encounter_pool_path() {
+    local biome="$1"
+    printf '%s/pools/%s.json' "${POKIDLE_CACHE_DIR:-$HOME/.cache/pokidle}" "$biome"
+}
+
+encounter_pool_save() {
+    local biome="$1" entries_json="$2"
+    local p
+    p="$(encounter_pool_path "$biome")"
+    mkdir -p -- "$(dirname -- "$p")"
+    local body
+    body="$(jq -n --arg b "$biome" --arg ts "$(date -u +%FT%TZ)" \
+                  --arg gen "${POKIDLE_GEN:-}" --argjson e "$entries_json" '{
+        biome: $b, built_at: $ts,
+        gen_filter: ($gen | if . == "" then [] else split(",") end),
+        entries: $e
+    }')"
+    printf '%s' "$body" > "$p"
+}
+
+encounter_pool_load() {
+    local biome="$1"
+    local p
+    p="$(encounter_pool_path "$biome")"
+    [[ -f "$p" ]] || { printf 'encounter_pool_load: no pool for %s\n' "$biome" >&2; return 1; }
+    cat "$p"
+}
+
+# Weighted random pick from pool object {entries:[{species,min,max,pct}]}.
+encounter_roll_pool_entry() {
+    local pool="$1"
+    local r cum=0 picked=""
+    r="$(awk -v s=$RANDOM -v t=$RANDOM 'BEGIN { srand(s*32768+t); printf "%.6f", rand()*100 }')"
+    local entries
+    entries="$(jq -c '.entries[]' <<< "$pool")"
+    local e pct
+    while IFS= read -r e; do
+        [[ -z "$e" ]] && continue
+        pct="$(jq -r '.pct' <<< "$e")"
+        cum="$(awk -v a="$cum" -v b="$pct" 'BEGIN { printf "%.6f", a+b }')"
+        if awk -v r="$r" -v c="$cum" 'BEGIN { exit !(r <= c) }'; then
+            picked="$e"
+            break
+        fi
+    done <<< "$entries"
+    [[ -z "$picked" ]] && picked="$(jq -c '.entries[-1]' <<< "$pool")"
+    printf '%s' "$picked"
+}
