@@ -40,3 +40,53 @@ teardown() {
     [ "$status" -eq 0 ]
     [ ! -f "$POKIDLE_CACHE_DIR/pools/cave.json" ]
 }
+
+# Helper for tick tests: seed POKEAPI_CACHE_DIR with proper layout
+# (cache_path = $dir/$endpoint.json, slashes preserved as subdirs).
+_seed_pokeapi_cache() {
+    local d="$1"
+    mkdir -p "$d/pokemon" "$d/pokemon-species" "$d/evolution-chain" "$d/nature" "$d/item" "$d/location-area"
+    cp "$FIXTURE_DIR/pokemon-treecko.json"          "$d/pokemon/treecko.json"
+    cp "$FIXTURE_DIR/pokemon-species-treecko.json"  "$d/pokemon-species/treecko.json"
+    cp "$FIXTURE_DIR/evolution-chain-142.json"      "$d/evolution-chain/142.json"
+    # nature?limit=100 → file with literal ?  in name
+    cp "$FIXTURE_DIR/nature-limit-100.json"         "$d/nature?limit=100.json"
+    local n
+    for n in "$FIXTURE_DIR"/nature-*.json; do
+        local base="${n##*/}"
+        base="${base#nature-}"
+        base="${base%.json}"
+        [[ "$base" == "limit-100" ]] && continue
+        cp "$n" "$d/nature/$base.json"
+    done
+    local i
+    for i in "$FIXTURE_DIR"/item-*.json; do
+        local base="${i##*/}"
+        base="${base#item-}"
+        cp "$i" "$d/item/$base"
+    done
+}
+
+@test "pokidle tick pokemon --dry-run --no-notify --json: emits encounter without writing db" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));"
+
+    local pool='{"biome":"cave","entries":[{"species":"treecko","min":5,"max":7,"pct":100}]}'
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    printf '%s' "$pool" > "$POKIDLE_CACHE_DIR/pools/cave.json"
+
+    POKEAPI_CACHE_DIR="$BATS_TMPDIR/papi.$$"
+    export POKEAPI_CACHE_DIR
+    _seed_pokeapi_cache "$POKEAPI_CACHE_DIR"
+
+    run "$REPO_ROOT/pokidle" tick pokemon --dry-run --no-notify --json
+    [ "$status" -eq 0 ]
+    local sp
+    sp="$(jq -r '.species' <<< "$output")"
+    [ "$sp" = "treecko" ]
+
+    local n
+    n="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM encounters;")"
+    [ "$n" = "0" ]
+}
