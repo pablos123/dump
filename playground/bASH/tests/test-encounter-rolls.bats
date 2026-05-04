@@ -180,3 +180,22 @@ setup() {
     # cave berry_pool: rawst, aspear, chesto, lum
     [[ "$output" =~ ^(rawst|aspear|chesto|lum)$ ]]
 }
+
+@test "encounter_roll_pokemon: full encounter has all required keys" {
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
+    mkdir -p "$POKIDLE_CONFIG_DIR"
+    cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
+    export POKIDLE_CONFIG_DIR
+
+    local entry='{"species":"treecko","min":5,"max":7,"pct":100}'
+    run encounter_roll_pokemon "$entry" "cave"
+    [ "$status" -eq 0 ]
+
+    local enc="$output"
+    local k
+    for k in species dex_id level nature ability is_hidden_ability gender shiny held_berry ivs evs stats moves sprite_url; do
+        local v
+        v="$(jq -r --arg k "$k" 'has($k) | tostring' <<< "$enc")"
+        [ "$v" = "true" ]
+    done
+}
