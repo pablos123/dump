@@ -242,3 +242,17 @@ encounter_roll_held_berry() {
     local idx=$((RANDOM % n))
     printf '%s' "${berries[$idx]}"
 }
+
+# encounter_walk_chain <chain_json>
+# Emits a JSON array of {species, stage_idx, min_level_evo (nullable)}.
+# stage_idx 0 for root; root has no min_level_evo.
+encounter_walk_chain() {
+    local chain_json="$1"
+    jq -c '
+        def walk($node; $stage):
+            ($node.evolution_details[0].min_level // null) as $ml |
+            { species: $node.species.name, stage_idx: $stage, min_level_evo: $ml },
+            ($node.evolves_to[]? | walk(.; $stage + 1));
+        [walk(.chain; 0)]
+    ' <<< "$chain_json"
+}
