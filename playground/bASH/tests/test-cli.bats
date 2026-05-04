@@ -119,6 +119,31 @@ _seed_pokeapi_cache() {
     [[ "$output" == *"Adamant Nature"* ]]
 }
 
+@test "pokidle items --json" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    local sid
+    sid="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));
+         SELECT last_insert_rowid();")"
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO item_drops(session_id, encountered_at, item, sprite_path)
+         VALUES ($sid, $(date +%s), 'everstone', NULL);"
+    run "$REPO_ROOT/pokidle" items --json --limit 5
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq 'length' <<< "$output")"
+    [ "$n" = "1" ]
+}
+
+@test "pokidle stats prints totals" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));"
+    run "$REPO_ROOT/pokidle" stats
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Total encounters"* ]]
+}
+
 @test "pokidle tick pokemon --dry-run --no-notify --json: emits encounter without writing db" {
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     sqlite3 "$POKIDLE_DB_PATH" \
