@@ -61,7 +61,103 @@ EOF
 
 # Stubs filled in by subsequent tasks.
 pokidle_daemon()           { printf 'pokidle daemon: see Plan C\n' >&2; return 1; }
-pokidle_tick()             { printf 'pokidle tick: not implemented yet\n' >&2; return 1; }
+pokidle_tick() {
+    local kind="${1:-pokemon}"
+    shift || true
+    local dry_run=0 no_notify=0 emit_json=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)   dry_run=1; shift ;;
+            --no-notify) no_notify=1; shift ;;
+            --json)      emit_json=1; shift ;;
+            *) printf 'tick: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    db_init
+
+    local row sid biome
+    row="$(db_active_biome_session)"
+    if [[ -z "$row" ]]; then
+        biome="$(biome_pick_random)"
+        sid="$(db_open_biome_session "$biome" "$(date +%s)")"
+    else
+        IFS=$'\t' read -r sid biome _ <<< "$row"
+    fi
+    local label
+    label="$(biome_get "$biome" | jq -r '.label')"
+
+    case "$kind" in
+        pokemon)
+            local pool entry enc
+            if [[ ! -f "$(encounter_pool_path "$biome")" ]]; then
+                printf 'tick: no pool for %s — run rebuild-pool first\n' "$biome" >&2
+                return 1
+            fi
+            pool="$(encounter_pool_load "$biome")"
+            entry="$(encounter_roll_pool_entry "$pool")"
+            enc="$(encounter_roll_pokemon "$entry" "$biome")"
+
+            local sprite_url sprite_path=""
+            sprite_url="$(jq -r '.sprite_url // ""' <<< "$enc")"
+            if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
+                sprite_path="$POKIDLE_CACHE_DIR/sprites/$(jq -r '.species' <<< "$enc").png"
+                mkdir -p -- "$(dirname -- "$sprite_path")"
+                [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
+            fi
+
+            local enc_with_meta
+            enc_with_meta="$(jq -c \
+                --arg label "$label" --arg sp "$sprite_path" '
+                . + {biome_label: $label, sprite_path: $sp}
+            ' <<< "$enc")"
+
+            if (( dry_run == 0 )); then
+                local enc_for_db
+                enc_for_db="$(jq -c \
+                    --argjson sid "$sid" --argjson ts "$(date +%s)" --arg sp "$sprite_path" '
+                    . + {session_id: $sid, encountered_at: $ts, sprite_path: $sp}
+                ' <<< "$enc")"
+                db_insert_encounter "$enc_for_db"
+            fi
+            if (( no_notify == 0 )); then
+                notify_pokemon "$enc_with_meta"
+            fi
+            if (( emit_json )); then
+                printf '%s\n' "$enc_with_meta"
+            elif (( no_notify )); then
+                jq -r '"\(.species) lvl \(.level) \(.nature)"' <<< "$enc_with_meta"
+            fi
+            ;;
+        item)
+            local item_json
+            item_json="$(encounter_roll_item "$biome")"
+            local item_name sprite_url sprite_path=""
+            item_name="$(jq -r '.item' <<< "$item_json")"
+            sprite_url="$(jq -r '.sprite_url // ""' <<< "$item_json")"
+            if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
+                sprite_path="$POKIDLE_CACHE_DIR/sprites/items/$item_name.png"
+                mkdir -p -- "$(dirname -- "$sprite_path")"
+                [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
+            fi
+            local item_with_meta
+            item_with_meta="$(jq -c --arg l "$label" --arg sp "$sprite_path" '
+                . + {biome_label: $l, sprite_path: $sp}
+            ' <<< "$item_json")"
+            if (( dry_run == 0 )); then
+                db_insert_item_drop "$sid" "$(date +%s)" "$item_name" "$sprite_path"
+            fi
+            if (( no_notify == 0 )); then
+                notify_item "$item_with_meta"
+            fi
+            (( emit_json )) && printf '%s\n' "$item_with_meta"
+            ;;
+        *)
+            printf 'tick: kind must be pokemon or item\n' >&2
+            return 2
+            ;;
+    esac
+}
 pokidle_list()             { printf 'pokidle list: not implemented yet\n' >&2; return 1; }
 pokidle_items()            { printf 'pokidle items: not implemented yet\n' >&2; return 1; }
 pokidle_stats()            { printf 'pokidle stats: not implemented yet\n' >&2; return 1; }
