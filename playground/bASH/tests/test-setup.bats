@@ -68,8 +68,7 @@ EOF
     "$REPO_ROOT/pokidle" setup
     echo '{"manual":"edit"}' > "$XDG_CONFIG_HOME/pokidle/biomes.json"
     "$REPO_ROOT/pokidle" setup --force
-    run jq '.biomes | length' "$XDG_CONFIG_HOME/pokidle/biomes.json"
-    [ "$output" = "18" ]
+    cmp -s "$REPO_ROOT/config/biomes.json" "$XDG_CONFIG_HOME/pokidle/biomes.json"
 }
 
 @test "pokidle status prints systemctl + last tick info" {
