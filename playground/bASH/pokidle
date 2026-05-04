@@ -65,10 +65,53 @@ pokidle_tick()             { printf 'pokidle tick: not implemented yet\n' >&2; r
 pokidle_list()             { printf 'pokidle list: not implemented yet\n' >&2; return 1; }
 pokidle_items()            { printf 'pokidle items: not implemented yet\n' >&2; return 1; }
 pokidle_stats()            { printf 'pokidle stats: not implemented yet\n' >&2; return 1; }
-pokidle_current()          { printf 'pokidle current: not implemented yet\n' >&2; return 1; }
+pokidle_current() {
+    db_init
+    local row
+    row="$(db_active_biome_session)"
+    if [[ -z "$row" ]]; then
+        printf 'no active biome\n'
+        return 0
+    fi
+    local id biome started_at
+    IFS=$'\t' read -r id biome started_at <<< "$row"
+    local now elapsed remaining
+    now="$(date +%s)"
+    elapsed=$((now - started_at))
+    remaining=$(( ${POKIDLE_BIOME_HOURS:-3} * 3600 - elapsed ))
+    local enc_count item_count
+    enc_count="$(db_query "SELECT COUNT(*) FROM encounters WHERE session_id=$id;")"
+    item_count="$(db_query "SELECT COUNT(*) FROM item_drops WHERE session_id=$id;")"
+    printf 'Active biome: %s  (session #%s)\n' "$biome" "$id"
+    printf 'Started: %s\n' "$(date -d "@$started_at")"
+    printf 'Time remaining: %ds\n' "$remaining"
+    printf 'Encounters: %s   Items: %s\n' "$enc_count" "$item_count"
+}
+
+pokidle_clean() {
+    local yes=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yes|-y) yes=1; shift ;;
+            *) shift ;;
+        esac
+    done
+    if (( ! yes )); then
+        printf 'This will remove %s/pools and %s. Type yes: ' \
+            "$POKIDLE_CACHE_DIR" "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}"
+        local ans
+        read -r ans
+        [[ "$ans" == "yes" ]] || { printf 'aborted\n'; return 1; }
+    fi
+    rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
+    if [[ -d "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}" ]]; then
+        rm -rf -- "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}"
+    fi
+    printf 'cleaned\n'
+}
+
 pokidle_rebuild_pool()     { printf 'pokidle rebuild-pool: not implemented yet\n' >&2; return 1; }
 pokidle_rebuild_biomes()   { printf 'pokidle rebuild-biomes: not implemented yet\n' >&2; return 1; }
-pokidle_clean()            { printf 'pokidle clean: not implemented yet\n' >&2; return 1; }
 pokidle_setup()            { printf 'pokidle setup: see Plan C\n' >&2; return 1; }
 pokidle_uninstall()        { printf 'pokidle uninstall: see Plan C\n' >&2; return 1; }
 pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
