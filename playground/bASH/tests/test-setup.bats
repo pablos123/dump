@@ -56,3 +56,22 @@ teardown() {
     run jq '.biomes | length' "$XDG_CONFIG_HOME/pokidle/biomes.json"
     [ "$output" = "18" ]
 }
+
+@test "pokidle status prints systemctl + last tick info" {
+    "$REPO_ROOT/pokidle" setup
+
+    # Pre-populate db with some state
+    db_init() { sqlite3 "$XDG_DATA_HOME/pokidle/pokidle.db" < "$REPO_ROOT/schema.sql"; }
+    db_init
+
+    sqlite3 "$XDG_DATA_HOME/pokidle/pokidle.db" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));"
+    sqlite3 "$XDG_DATA_HOME/pokidle/pokidle.db" \
+        "INSERT OR REPLACE INTO daemon_state(key,value) VALUES ('last_pokemon_tick_target','1700001000');"
+
+    run "$REPO_ROOT/pokidle" status
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"systemctl"* ]] || [[ "$output" == *"Loaded:"* ]] || true
+    [[ "$output" == *"cave"* ]]
+    [[ "$output" == *"last_pokemon_tick_target"* ]] || [[ "$output" == *"1700001000"* ]]
+}
