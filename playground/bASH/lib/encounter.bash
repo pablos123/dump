@@ -336,8 +336,15 @@ encounter_build_pool() {
         pct="$(jq -r '.pct' <<< "$entry")"
         delta=$((max - min))
 
+        # /pokemon-species expects the BASE species, not a form (e.g.
+        # basculin-blue-striped -> basculin, dugtrio-alola -> dugtrio).
+        # Resolve form -> species via /pokemon/{form}.species.name first.
+        local poke_obj species_name
+        poke_obj="$(pokeapi_get "pokemon/$sp")" || return 1
+        species_name="$(jq -r '.species.name' <<< "$poke_obj")"
+
         local spec chain_url chain_id
-        spec="$(pokeapi_get "pokemon-species/$sp")" || return 1
+        spec="$(pokeapi_get "pokemon-species/$species_name")" || return 1
         chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
         chain_id="$(basename -- "${chain_url%/}")"
 
