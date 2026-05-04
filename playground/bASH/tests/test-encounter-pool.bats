@@ -31,6 +31,39 @@ setup() {
     [ "$sceptile_min" = "36" ]
 }
 
+@test "build_pool: single area with treecko -> 3-entry pool, halved %, normalized to 100" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq 'length' <<< "$output")"
+    [ "$n" = "3" ]
+    local treecko_pct grovyle_pct sceptile_pct
+    treecko_pct="$(jq -r '.[] | select(.species=="treecko") | .pct' <<< "$output")"
+    grovyle_pct="$(jq -r '.[] | select(.species=="grovyle") | .pct' <<< "$output")"
+    sceptile_pct="$(jq -r '.[] | select(.species=="sceptile") | .pct' <<< "$output")"
+    awk -v t="$treecko_pct"  'BEGIN { exit !(t > 56 && t < 58) }'
+    awk -v t="$grovyle_pct"  'BEGIN { exit !(t > 28 && t < 29) }'
+    awk -v t="$sceptile_pct" 'BEGIN { exit !(t > 14 && t < 15) }'
+
+    local total
+    total="$(jq '[.[] | .pct] | add' <<< "$output")"
+    awk -v t="$total" 'BEGIN { exit !(t > 99.9 && t < 100.1) }'
+}
+
+@test "build_pool: grovyle gets level 16-(16+delta), sceptile 36-(36+delta) where delta=2" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local g_min g_max s_min s_max
+    g_min="$(jq -r '.[] | select(.species=="grovyle") | .min' <<< "$output")"
+    g_max="$(jq -r '.[] | select(.species=="grovyle") | .max' <<< "$output")"
+    s_min="$(jq -r '.[] | select(.species=="sceptile") | .min' <<< "$output")"
+    s_max="$(jq -r '.[] | select(.species=="sceptile") | .max' <<< "$output")"
+    [ "$g_min" = "16" ] && [ "$g_max" = "18" ]
+    [ "$s_min" = "36" ] && [ "$s_max" = "38" ]
+}
+
 @test "walk_chain: eevee line yields 3 stages with null min_level for non-level evos" {
     local chain
     chain="$(cat "$FIXTURE_DIR/evolution-chain-67.json")"
