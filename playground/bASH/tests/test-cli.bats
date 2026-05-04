@@ -67,6 +67,58 @@ _seed_pokeapi_cache() {
     done
 }
 
+@test "pokidle list emits json with --json" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    local sid
+    sid="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));
+         SELECT last_insert_rowid();")"
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level, nature,
+            ability, is_hidden_ability, gender, shiny, held_berry,
+            iv_hp,iv_atk,iv_def,iv_spa,iv_spd,iv_spe,
+            ev_hp,ev_atk,ev_def,ev_spa,ev_spd,ev_spe,
+            stat_hp,stat_atk,stat_def,stat_spa,stat_spd,stat_spe,
+            moves_json, sprite_path)
+        VALUES ($sid, $(date +%s), 'zubat', 41, 7, 'adamant', 'inner-focus', 0, 'M', 0, NULL,
+            10,20,30,15,5,25,
+            0,0,0,0,0,0,
+            22,18,15,12,15,30,
+            '[\"bite\"]', NULL);"
+
+    run "$REPO_ROOT/pokidle" list --json --limit 5
+    [ "$status" -eq 0 ]
+    local n
+    n="$(jq 'length' <<< "$output")"
+    [ "$n" = "1" ]
+    [[ "$output" == *"zubat"* ]]
+}
+
+@test "pokidle list --export emits showdown set text" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    local sid
+    sid="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));
+         SELECT last_insert_rowid();")"
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level, nature,
+            ability, is_hidden_ability, gender, shiny, held_berry,
+            iv_hp,iv_atk,iv_def,iv_spa,iv_spd,iv_spe,
+            ev_hp,ev_atk,ev_def,ev_spa,ev_spd,ev_spe,
+            stat_hp,stat_atk,stat_def,stat_spa,stat_spd,stat_spe,
+            moves_json, sprite_path)
+        VALUES ($sid, $(date +%s), 'sceptile', 254, 42, 'adamant', 'overgrow', 0, 'M', 1, 'sitrus',
+            31,28,19,31,24,30,
+            252,0,0,6,0,252,
+            142,198,95,129,95,152,
+            '[\"leaf-blade\",\"dragon-claw\",\"earthquake\",\"x-scissor\"]', NULL);"
+
+    run "$REPO_ROOT/pokidle" list --export
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Sceptile @ Sitrus Berry"* ]]
+    [[ "$output" == *"Adamant Nature"* ]]
+}
+
 @test "pokidle tick pokemon --dry-run --no-notify --json: emits encounter without writing db" {
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     sqlite3 "$POKIDLE_DB_PATH" \
