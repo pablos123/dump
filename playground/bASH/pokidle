@@ -479,8 +479,67 @@ pokidle_rebuild_biomes() {
     done < <(biome_ids)
     printf 'rebuilt biome-area assignments\n'
 }
-pokidle_setup()            { printf 'pokidle setup: see Plan C\n' >&2; return 1; }
-pokidle_uninstall()        { printf 'pokidle uninstall: see Plan C\n' >&2; return 1; }
+pokidle_setup() {
+    local enable=0 force=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --enable) enable=1; shift ;;
+            --force)  force=1; shift ;;
+            *) printf 'setup: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    # 1. Config dir + biomes.json
+    mkdir -p -- "$POKIDLE_CONFIG_DIR"
+    if (( force )) || [[ ! -f "$POKIDLE_CONFIG_DIR/biomes.json" ]]; then
+        cp -- "$POKIDLE_REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
+        printf 'wrote %s\n' "$POKIDLE_CONFIG_DIR/biomes.json"
+    fi
+
+    # 2. Data + cache dirs
+    mkdir -p -- "$POKIDLE_DATA_DIR" "$POKIDLE_CACHE_DIR"
+
+    # 3. Symlink pokidle into ~/.local/bin
+    local bindir="$HOME/.local/bin"
+    mkdir -p -- "$bindir"
+    if (( force )) || [[ ! -e "$bindir/pokidle" ]]; then
+        ln -sf -- "$POKIDLE_REPO_ROOT/pokidle" "$bindir/pokidle"
+        printf 'symlinked %s -> %s\n' "$bindir/pokidle" "$POKIDLE_REPO_ROOT/pokidle"
+    fi
+    case ":$PATH:" in
+        *":$bindir:"*) ;;
+        *) printf 'warning: %s is not in PATH — add it to your shell rc\n' "$bindir" >&2 ;;
+    esac
+
+    # 4. Systemd unit
+    local sd_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+    mkdir -p -- "$sd_dir"
+    if (( force )) || [[ ! -f "$sd_dir/pokidle.service" ]]; then
+        cp -- "$POKIDLE_REPO_ROOT/systemd/pokidle.service" "$sd_dir/pokidle.service"
+        printf 'wrote %s\n' "$sd_dir/pokidle.service"
+    fi
+
+    # 5. Reload systemd user units
+    systemctl --user daemon-reload || \
+        printf 'warning: systemctl --user daemon-reload failed (no logind?)\n' >&2
+
+    if (( enable )); then
+        systemctl --user enable --now pokidle.service && \
+            printf 'enabled and started pokidle.service\n' || \
+            printf 'enable failed — see journalctl --user -u pokidle\n' >&2
+    else
+        printf 'next: systemctl --user enable --now pokidle.service\n'
+    fi
+}
+
+pokidle_uninstall() {
+    systemctl --user disable --now pokidle.service 2>/dev/null || true
+    rm -f -- "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/pokidle.service"
+    rm -f -- "$HOME/.local/bin/pokidle"
+    systemctl --user daemon-reload || true
+    printf 'uninstalled. Config (%s), DB (%s), cache (%s) left intact.\n' \
+        "$POKIDLE_CONFIG_DIR" "$POKIDLE_DB_PATH" "$POKIDLE_CACHE_DIR"
+}
 pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
 
 if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
