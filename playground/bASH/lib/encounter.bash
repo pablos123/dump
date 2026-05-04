@@ -435,3 +435,78 @@ encounter_roll_pool_entry() {
     [[ -z "$picked" ]] && picked="$(jq -c '.entries[-1]' <<< "$pool")"
     printf '%s' "$picked"
 }
+
+# encounter_roll_pokemon <entry_json> <biome_id>
+# Emits a JSON encounter object ready for db_insert_encounter (after adding
+# session_id, encountered_at, sprite_path).
+encounter_roll_pokemon() {
+    local entry="$1" biome="$2"
+    local sp lo hi
+    sp="$(jq -r '.species' <<< "$entry")"
+    lo="$(jq -r '.min'     <<< "$entry")"
+    hi="$(jq -r '.max'     <<< "$entry")"
+
+    local poke
+    poke="$(pokeapi_get "pokemon/$sp")" || return 1
+    local dex_id
+    dex_id="$(jq -r '.id' <<< "$poke")"
+    local sprite_url
+    sprite_url="$(jq -r '.sprites.front_default // ""' <<< "$poke")"
+    local sprite_url_shiny
+    sprite_url_shiny="$(jq -r '.sprites.front_shiny // ""' <<< "$poke")"
+
+    local level
+    level="$(encounter_roll_level "$lo" "$hi")"
+
+    local ivs evs
+    ivs="$(encounter_roll_ivs)"
+    evs="$(encounter_ev_split "$((RANDOM % 511))")"
+
+    local natures n nature
+    mapfile -t natures < <(encounter_natures_list)
+    n="${#natures[@]}"
+    nature="${natures[$((RANDOM % n))]}"
+    local mods
+    mods="$(encounter_nature_mods "$nature")" || return 1
+
+    local ability_obj ability is_hidden
+    ability_obj="$(encounter_roll_ability "$sp")" || return 1
+    ability="$(jq -r '.name' <<< "$ability_obj")"
+    is_hidden="$(jq -r 'if .is_hidden then 1 else 0 end' <<< "$ability_obj")"
+
+    local moves_json
+    moves_json="$(encounter_roll_moves "$sp" "$level")" || return 1
+
+    local gender shiny held_berry
+    gender="$(encounter_roll_gender "$sp")" || return 1
+    shiny="$(encounter_roll_shiny)"
+    held_berry="$(encounter_roll_held_berry "$biome")" || return 1
+
+    local base_stats stats
+    base_stats="$(jq -c '.stats' <<< "$poke")"
+    stats="$(encounter_compute_all_stats "$base_stats" "$ivs" "$evs" "$level" "$mods")" || return 1
+
+    local final_sprite="$sprite_url"
+    [[ "$shiny" == "1" && -n "$sprite_url_shiny" ]] && final_sprite="$sprite_url_shiny"
+
+    local berry_arg
+    if [[ "$held_berry" == "null" ]]; then berry_arg="null"; else berry_arg="\"$held_berry\""; fi
+
+    local ivs_json evs_json stats_json
+    ivs_json="[$(printf '%s,' $ivs | sed 's/,$//')]"
+    evs_json="[$(printf '%s,' $evs | sed 's/,$//')]"
+    stats_json="[$(printf '%s,' $stats | sed 's/,$//')]"
+
+    jq -n \
+        --arg sp "$sp" --argjson dex "$dex_id" --argjson lvl "$level" \
+        --arg nature "$nature" --arg ability "$ability" --argjson hidden "$is_hidden" \
+        --arg gender "$gender" --argjson shiny "$shiny" --argjson held "$berry_arg" \
+        --argjson ivs "$ivs_json" --argjson evs "$evs_json" --argjson stats "$stats_json" \
+        --argjson moves "$moves_json" --arg sprite "$final_sprite" '{
+            species: $sp, dex_id: $dex, level: $lvl,
+            nature: $nature, ability: $ability, is_hidden_ability: $hidden,
+            gender: $gender, shiny: $shiny, held_berry: $held,
+            ivs: $ivs, evs: $evs, stats: $stats,
+            moves: $moves, sprite_url: $sprite
+        }'
+}
