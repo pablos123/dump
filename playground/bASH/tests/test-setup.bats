@@ -41,6 +41,21 @@ teardown() {
     grep -q 'enable --now' "$HOME/systemctl.log"
 }
 
+@test "pokidle setup --enable propagates systemctl failure" {
+    cat > "$BATS_TMPDIR/bin.$$/systemctl" <<'EOF'
+#!/bin/bash
+echo "stub-systemctl: $*" >> "$HOME/systemctl.log"
+case "$*" in
+    *"enable --now"*) exit 1 ;;
+    *) exit 0 ;;
+esac
+EOF
+    chmod +x "$BATS_TMPDIR/bin.$$/systemctl"
+    run "$REPO_ROOT/pokidle" setup --enable
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"enable failed"* ]]
+}
+
 @test "pokidle setup is idempotent (no overwrite without --force)" {
     "$REPO_ROOT/pokidle" setup
     echo '{"manual":"edit"}' > "$XDG_CONFIG_HOME/pokidle/biomes.json"

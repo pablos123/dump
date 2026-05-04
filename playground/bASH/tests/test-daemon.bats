@@ -48,3 +48,13 @@ source_pokidle_lib() {
     run _pokidle_should_rotate_biome 1700000000 "$now"
     [ "$status" -ne 0 ]
 }
+
+@test "schedule_next_tick: POKIDLE_TICK_FAST=1 uses cadence in [now, now+interval)" {
+    POKIDLE_TICK_FAST=1 source_pokidle_lib
+    local now=1700000000
+    local interval=60
+    local next
+    next="$(POKIDLE_TICK_FAST=1 _pokidle_next_tick_target "$now" "$interval")"
+    [ "$next" -ge "$now" ]
+    [ "$next" -lt "$((now + interval))" ]
+}
