@@ -540,7 +540,16 @@ pokidle_uninstall() {
     printf 'uninstalled. Config (%s), DB (%s), cache (%s) left intact.\n' \
         "$POKIDLE_CONFIG_DIR" "$POKIDLE_DB_PATH" "$POKIDLE_CACHE_DIR"
 }
-pokidle_status()           { printf 'pokidle status: see Plan C\n' >&2; return 1; }
+pokidle_status() {
+    printf '=== systemctl --user status pokidle.service ===\n'
+    systemctl --user status pokidle.service --no-pager 2>&1 || true
+    printf '\n=== current biome ===\n'
+    pokidle_current
+    printf '\n=== daemon_state ===\n'
+    db_init
+    db_query "SELECT key, value FROM daemon_state ORDER BY key;" |
+        awk -F'\t' '{ printf "  %-32s %s\n", $1, $2 }'
+}
 
 if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
     cmd="${1-}"
