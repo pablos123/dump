@@ -1,29 +1,26 @@
-import Data.Char
-import Data.List
-
 -- Ejercicios de teoría.
 isEven :: Int -> Bool
 isEven 0 = True
 isEven x = even x -- mod x 2 == 0
 
 takeWhile1 :: (a -> Bool) -> [a] -> [a]
-takeWhile1 p [] = []
+takeWhile1 _ [] = []
 takeWhile1 p (x : xs)
   | p x = x : takeWhile1 p xs
   | otherwise = []
 
 dropWhile1 :: (a -> Bool) -> [a] -> [a]
-dropWhile1 p [] = []
+dropWhile1 _ [] = []
 dropWhile1 p (x : xs)
   | p x = dropWhile1 p xs
   | otherwise = x : xs
 
 span1 :: (a -> Bool) -> [a] -> ([a], [a])
-span1 p [] = ([], [])
+span1 _ [] = ([], [])
 span1 p x = (takeWhile1 p x, dropWhile1 p x)
 
 span2 :: (a -> Bool) -> [a] -> ([a], [a])
-span2 p [] = ([], [])
+span2 _ [] = ([], [])
 span2 p (x : xs)
   | p x = (x : y, z)
   | otherwise = ([], x : xs)
@@ -58,47 +55,46 @@ test f x = f x == x + 2
 
 type NumBin = [Bool]
 
+xor :: Bool -> Bool -> Bool
+xor a b = a && not b || not a && b
+
 sumaBin :: NumBin -> NumBin -> NumBin
 sumaBin [] b = b
 sumaBin b [] = b
-sumaBin b1 b2 = sumaBin' b1 b2 False
+sumaBin b1 b2 = normalize (sumaBin' b1 b2 False)
 
 sumaBin' :: NumBin -> NumBin -> Bool -> NumBin
-sumaBin' [] b a = if a then b ++ [a] else b
-sumaBin' b [] a = if a then b ++ [a] else b
-sumaBin' (l1 : ls1) (l2 : ls2) a = let x = xor l1 l2 in (x || a) : sumaBin' ls1 ls2 (if x && a then a else l1 && l2)
-
-xor :: Bool -> Bool -> Bool
-xor a b = a && not b || not a && b
+sumaBin' [] b a = sumaBin b [a]
+sumaBin' b [] a = sumaBin b [a]
+sumaBin' (l1 : ls1) (l2 : ls2) a = let x = xor l1 l2 in xor x a : sumaBin' ls1 ls2 (if x && a then a else l1 && l2)
 
 productoBin :: NumBin -> NumBin -> NumBin
 productoBin [] b = b
 productoBin b [] = b
-productoBin [False] b = [False]
-productoBin b [False] = [False]
+productoBin [False] _ = [False]
+productoBin _ [False] = [False]
 productoBin [True] b = b
 productoBin b [True] = b
-productoBin l1 l2 = productoBin' l1 l2
-
-productoBin' :: NumBin -> NumBin -> NumBin
-productoBin' b1 [True] = b1
-productoBin' b1 l = sumaBin b1 (productoBin' b1 (restaUno l))
+productoBin l1 l2 = sumaBin l1 (productoBin l1 (normalize (restaUno l2)))
 
 restaUno :: NumBin -> NumBin
 restaUno [] = []
-restaUno (True : ls) = normalize (False : ls)
+restaUno (True : ls) = False : ls
 restaUno (False : ls) = True : restaUno ls
 
-normalize :: [Bool] -> [Bool]
-normalize t = if not (or t) then [False] else t
+normalize :: NumBin -> NumBin
+normalize [] = []
+normalize (l : ls) = if not (or (l : ls)) then [] else l : normalize ls
 
 cocienteDos :: NumBin -> NumBin
-cocienteDos = undef
+cocienteDos [] = []
+cocienteDos (_ : ls) = ls
 
 restoDos :: NumBin -> NumBin
 restoDos [] = []
-restoDos (l : ls) = [l]
+restoDos (l : _) = [l]
 
+main :: IO ()
 main = do
   -- Teoría
   let list = [2, 1, 2, 3, 4]
@@ -107,18 +103,16 @@ main = do
   print (span1 isEven list)
   print (span2 isEven list)
 
-  print ()
-  print ((+ 1) 3)
-
+  -- Practica
+  print "Suma Bin"
   print (sumaBin [True, True] [False, False])
   print (sumaBin [True, False, True] [True, False, True])
+  print (sumaBin [True, True, True] [True, True, True])
+  print (sumaBin [True, False, True] [True, True, True, True])
+  print (sumaBin [True] [True, True])
+  print (sumaBin [True] [True])
 
-  print "resta uno"
-  print (restaUno [True, False, True])
-  print (restaUno [False, True, False, True])
-  print (restaUno [True, True, True])
-  print (restaUno [True])
-  print (restaUno [True, True])
-
-  -- print (restaBin [True, False, True] [True, False, True])
+  print "Producto Bin"
+  print (productoBin [True, False, True] [True, False, True])
+  print (productoBin [False, True] [False, True])
   print (productoBin [False, True, False, True] [False, True, False, True])
