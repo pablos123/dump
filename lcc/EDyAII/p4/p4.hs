@@ -21,14 +21,10 @@ balanceado x d
     treeEven' = balanceado x ((d - 2) `div` 2)
 
 -- 2)
--- 1. maximum :: Ord a ⇒ BST a → a, que calcula el máximo valor en un bst.
--- 2. checkBST :: Ord a ⇒ BST a → Bool, que chequea si un árbol binario es un bst.
--- 3. splitBST :: Ord a ⇒ BST a → a → (BST a, BST a), que dado un árbol bst t y un elemento x , devuelva una
--- tupla con un bst con los elementos de t menores o iguales a x y un bst con los elementos de t mayores a x .
--- 4. join :: Ord a ⇒ BST a → BST a → BST a, que una los elementos dos árboles bst en uno.
 
 data BST a = Hoja | Nodo (BST a) a (BST a) deriving (Show)
 
+-- 1. maximum :: Ord a ⇒ BST a → a, que calcula el máximo valor en un bst.
 maximunBST :: (Ord a) => BST a -> a
 maximunBST Hoja = error "Not defined"
 maximunBST (Nodo _ x Hoja) = x
@@ -39,6 +35,7 @@ minimunBST Hoja = error "Not defined"
 minimunBST (Nodo Hoja x _) = x
 minimunBST (Nodo l _ _) = minimunBST l
 
+-- 2. checkBST :: Ord a ⇒ BST a → Bool, que chequea si un árbol binario es un bst.
 checkBST :: (Ord a) => BST a -> Bool
 checkBST Hoja = True
 checkBST (Nodo Hoja _ Hoja) = True
@@ -46,14 +43,17 @@ checkBST (Nodo l x Hoja) = checkBST l && x >= maximunBST l
 checkBST (Nodo Hoja x r) = checkBST r && x < minimunBST r
 checkBST (Nodo l x r) = checkBST l && checkBST r && x >= maximunBST l && x < minimunBST r
 
+-- 3. splitBST :: Ord a ⇒ BST a → a → (BST a, BST a), que dado un árbol bst t y un elemento x , devuelva una
+-- tupla con un bst con los elementos de t menores o iguales a x y un bst con los elementos de t mayores a x .
 splitBST :: (Ord a) => BST a -> a -> (BST a, BST a)
 splitBST Hoja _ = error "Not defined"
 splitBST t@(Nodo Hoja v Hoja) x = if v <= x then (t, Hoja) else (Hoja, t)
-splitBST (Nodo l v r) x = if v <= x then (Nodo l v rightSplittedL, rightSplittedR) else (leftSplittedL, Nodo leftSplittedR v r)
+splitBST (Nodo l v r) x = if v <= x then (Nodo l v rsl, rsr) else (lsl, Nodo lsr v r)
   where
-    (rightSplittedL, rightSplittedR) = splitBST r x
-    (leftSplittedL, leftSplittedR) = splitBST l x
+    (rsl, rsr) = splitBST r x
+    (lsl, lsr) = splitBST l x
 
+-- 4. join :: Ord a ⇒ BST a → BST a → BST a, que una los elementos dos árboles bst en uno.
 join :: (Ord a) => BST a -> BST a -> BST a
 join Hoja Hoja = Hoja
 join t Hoja = t
