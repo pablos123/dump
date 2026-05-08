@@ -148,18 +148,6 @@ setup() {
     [ "$(jq -r '.tiers.common[0].species' <<< "$output")" = "zubat" ]
 }
 
-@test "encounter_pool_load rejects v1 file without schema field" {
-    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
-    export POKIDLE_CACHE_DIR
-    mkdir -p "$POKIDLE_CACHE_DIR/pools"
-    cat > "$POKIDLE_CACHE_DIR/pools/cave.json" <<'EOF'
-{"biome":"cave","entries":[{"species":"zubat","min":5,"max":8,"pct":50}]}
-EOF
-    run encounter_pool_load cave
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"rebuild-pool"* ]]
-}
-
 @test "encounter_roll_pool_entry returns species from a populated tier" {
     local pool='{"schema":2,"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
     run encounter_roll_pool_entry "$pool"

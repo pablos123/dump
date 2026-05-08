@@ -482,14 +482,7 @@ encounter_pool_load() {
     local p
     p="$(encounter_pool_path "$biome")"
     [[ -f "$p" ]] || { printf 'encounter_pool_load: no pool for %s\n' "$biome" >&2; return 1; }
-    local body schema
-    body="$(cat "$p")"
-    schema="$(jq -r '.schema // 0' <<< "$body")"
-    if [[ "$schema" != "2" ]]; then
-        printf 'encounter_pool_load: pool stale for %s, run: pokidle rebuild-pool\n' "$biome" >&2
-        return 1
-    fi
-    printf '%s' "$body"
+    cat "$p"
 }
 
 # Roll a pool entry from a v2 pool {schema:2, tiers:{...}}.
