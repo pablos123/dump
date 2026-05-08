@@ -5,6 +5,23 @@
 # All 6 stats in canonical order.
 ENCOUNTER_STATS=(hp attack defense special-attack special-defense speed)
 
+# Rarity tier definitions. ENCOUNTER_TIER_PCT_MIN[i] is the inclusive lower
+# bound of tier ENCOUNTER_TIERS[i]; tiers are listed common-first.
+ENCOUNTER_TIERS=(common uncommon rare very_rare)
+ENCOUNTER_TIER_PCT_MIN=(25 10 3 0)
+ENCOUNTER_TIER_ROLL_WEIGHT=(60 25 12 3)
+
+encounter_tier_for_pct() {
+    local pct="$1" i
+    for i in 0 1 2 3; do
+        if (( pct >= ENCOUNTER_TIER_PCT_MIN[i] )); then
+            printf '%s' "${ENCOUNTER_TIERS[$i]}"
+            return
+        fi
+    done
+    printf 'very_rare'
+}
+
 encounter_natures_list() {
     local body
     body="$(pokeapi_get "nature?limit=100")" || return 1

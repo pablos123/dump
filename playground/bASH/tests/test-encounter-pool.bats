@@ -104,3 +104,14 @@ setup() {
     sp="$(jq -r '.species' <<< "$output")"
     [ "$sp" = "zubat" ]
 }
+
+@test "encounter_tier_for_pct: boundary values map to expected tiers" {
+    [ "$(encounter_tier_for_pct 100)" = "common" ]
+    [ "$(encounter_tier_for_pct 25)"  = "common" ]
+    [ "$(encounter_tier_for_pct 24)"  = "uncommon" ]
+    [ "$(encounter_tier_for_pct 10)"  = "uncommon" ]
+    [ "$(encounter_tier_for_pct 9)"   = "rare" ]
+    [ "$(encounter_tier_for_pct 3)"   = "rare" ]
+    [ "$(encounter_tier_for_pct 2)"   = "very_rare" ]
+    [ "$(encounter_tier_for_pct 0)"   = "very_rare" ]
+}
