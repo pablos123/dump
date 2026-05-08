@@ -115,3 +115,14 @@ setup() {
     [ "$(encounter_tier_for_pct 2)"   = "very_rare" ]
     [ "$(encounter_tier_for_pct 0)"   = "very_rare" ]
 }
+
+@test "encounter_tier_shift: shifts one step rarer per stage and clamps" {
+    [ "$(encounter_tier_shift common 0)"    = "common" ]
+    [ "$(encounter_tier_shift common 1)"    = "uncommon" ]
+    [ "$(encounter_tier_shift common 2)"    = "rare" ]
+    [ "$(encounter_tier_shift common 3)"    = "very_rare" ]
+    [ "$(encounter_tier_shift common 4)"    = "very_rare" ]
+    [ "$(encounter_tier_shift uncommon 1)"  = "rare" ]
+    [ "$(encounter_tier_shift rare 1)"      = "very_rare" ]
+    [ "$(encounter_tier_shift very_rare 2)" = "very_rare" ]
+}

@@ -22,6 +22,25 @@ encounter_tier_for_pct() {
     printf 'very_rare'
 }
 
+# Shift a tier name N steps toward "very_rare", clamped.
+encounter_tier_shift() {
+    local tier="$1" steps="$2" i base target
+    base=-1
+    for i in 0 1 2 3; do
+        if [[ "${ENCOUNTER_TIERS[$i]}" == "$tier" ]]; then
+            base=$i
+            break
+        fi
+    done
+    if (( base < 0 )); then
+        printf 'encounter_tier_shift: bad tier %s\n' "$tier" >&2
+        return 1
+    fi
+    target=$(( base + steps ))
+    (( target > 3 )) && target=3
+    printf '%s' "${ENCOUNTER_TIERS[$target]}"
+}
+
 encounter_natures_list() {
     local body
     body="$(pokeapi_get "nature?limit=100")" || return 1
