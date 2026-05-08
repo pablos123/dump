@@ -72,3 +72,54 @@ setup() {
     [ "$(encounter_tier_shift rare 1)"      = "very_rare" ]
     [ "$(encounter_tier_shift very_rare 2)" = "very_rare" ]
 }
+
+@test "build_pool: treecko area produces v2 tier shape, no pct in entries" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    # Output is the inner object {tiers:{...}} — encounter_pool_save wraps it.
+    local has_tiers
+    has_tiers="$(jq 'has("tiers")' <<< "$output")"
+    [ "$has_tiers" = "true" ]
+    local has_pct
+    has_pct="$(jq '[.tiers[][] | has("pct")] | any' <<< "$output")"
+    [ "$has_pct" = "false" ]
+}
+
+@test "build_pool: treecko (chance=40) is common; grovyle uncommon; sceptile rare" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local treecko_tier grovyle_tier sceptile_tier
+    treecko_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="treecko") | .key' <<< "$output")"
+    grovyle_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="grovyle") | .key' <<< "$output")"
+    sceptile_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="sceptile") | .key' <<< "$output")"
+    [ "$treecko_tier"  = "common" ]
+    [ "$grovyle_tier"  = "uncommon" ]
+    [ "$sceptile_tier" = "rare" ]
+}
+
+@test "build_pool: grovyle level 16-18, sceptile 36-38, treecko 5-7" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local t_min t_max g_min g_max s_min s_max
+    t_min="$(jq -r '.tiers.common[]    | select(.species=="treecko")  | .min' <<< "$output")"
+    t_max="$(jq -r '.tiers.common[]    | select(.species=="treecko")  | .max' <<< "$output")"
+    g_min="$(jq -r '.tiers.uncommon[]  | select(.species=="grovyle")  | .min' <<< "$output")"
+    g_max="$(jq -r '.tiers.uncommon[]  | select(.species=="grovyle")  | .max' <<< "$output")"
+    s_min="$(jq -r '.tiers.rare[]      | select(.species=="sceptile") | .min' <<< "$output")"
+    s_max="$(jq -r '.tiers.rare[]      | select(.species=="sceptile") | .max' <<< "$output")"
+    [ "$t_min" = "5" ]  && [ "$t_max" = "7" ]
+    [ "$g_min" = "16" ] && [ "$g_max" = "18" ]
+    [ "$s_min" = "36" ] && [ "$s_max" = "38" ]
+}
+
+@test "build_pool: empty tiers are present as empty arrays" {
+    local areas='["rustboro-route-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local vr
+    vr="$(jq -r '.tiers.very_rare | type' <<< "$output")"
+    [ "$vr" = "array" ]
+}
