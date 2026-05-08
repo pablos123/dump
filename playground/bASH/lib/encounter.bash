@@ -461,16 +461,18 @@ encounter_pool_path() {
 }
 
 encounter_pool_save() {
-    local biome="$1" entries_json="$2"
+    local biome="$1" body_json="$2"
     local p
     p="$(encounter_pool_path "$biome")"
     mkdir -p -- "$(dirname -- "$p")"
     local body
-    body="$(jq -n --arg b "$biome" --arg ts "$(date -u +%FT%TZ)" \
-                  --arg gen "${POKIDLE_GEN:-}" --argjson e "$entries_json" '{
-        biome: $b, built_at: $ts,
+    body="$(jq -c -n --arg b "$biome" --arg ts "$(date -u +%FT%TZ)" \
+                  --arg gen "${POKIDLE_GEN:-}" --argjson p "$body_json" '{
+        biome: $b,
+        built_at: $ts,
         gen_filter: ($gen | if . == "" then [] else split(",") end),
-        entries: $e
+        schema: 2,
+        tiers: $p.tiers
     }')"
     printf '%s' "$body" > "$p"
 }
@@ -480,7 +482,14 @@ encounter_pool_load() {
     local p
     p="$(encounter_pool_path "$biome")"
     [[ -f "$p" ]] || { printf 'encounter_pool_load: no pool for %s\n' "$biome" >&2; return 1; }
-    cat "$p"
+    local body schema
+    body="$(cat "$p")"
+    schema="$(jq -r '.schema // 0' <<< "$body")"
+    if [[ "$schema" != "2" ]]; then
+        printf 'encounter_pool_load: pool stale for %s, run: pokidle rebuild-pool\n' "$biome" >&2
+        return 1
+    fi
+    printf '%s' "$body"
 }
 
 # Weighted random pick from pool object {entries:[{species,min,max,pct}]}.

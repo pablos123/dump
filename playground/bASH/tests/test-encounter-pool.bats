@@ -123,3 +123,39 @@ setup() {
     vr="$(jq -r '.tiers.very_rare | type' <<< "$output")"
     [ "$vr" = "array" ]
 }
+
+@test "encounter_pool_save writes schema:2 and tiers wrapper" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    encounter_pool_save cave "$pool"
+    local saved
+    saved="$(cat "$POKIDLE_CACHE_DIR/pools/cave.json")"
+    [ "$(jq -r '.schema' <<< "$saved")" = "2" ]
+    [ "$(jq -r '.biome' <<< "$saved")" = "cave" ]
+    [ "$(jq -r '.tiers.common[0].species' <<< "$saved")" = "zubat" ]
+    [ "$(jq '.tiers.uncommon | type' <<< "$saved")" = "\"array\"" ]
+}
+
+@test "encounter_pool_load returns full v2 file on read" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    encounter_pool_save cave "$pool"
+    run encounter_pool_load cave
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.schema' <<< "$output")" = "2" ]
+    [ "$(jq -r '.tiers.common[0].species' <<< "$output")" = "zubat" ]
+}
+
+@test "encounter_pool_load rejects v1 file without schema field" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    cat > "$POKIDLE_CACHE_DIR/pools/cave.json" <<'EOF'
+{"biome":"cave","entries":[{"species":"zubat","min":5,"max":8,"pct":50}]}
+EOF
+    run encounter_pool_load cave
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"rebuild-pool"* ]]
+}
