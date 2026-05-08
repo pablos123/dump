@@ -311,10 +311,15 @@ encounter_gen_of() {
 }
 
 # encounter_build_pool <areas_json_array> <gen_csv>
-# Emits JSON array [{species, min, max, pct}].
+# Emits a JSON object {tiers:{common:[],uncommon:[],rare:[],very_rare:[]}}
+# where every entry is {species, min, max} (no pct). Entries are tier-bucketed
+# from the aggregated raw chance and chain-shifted one tier per evolution
+# stage, clamped at very_rare. On species collision across tiers, the
+# most-common tier wins.
 encounter_build_pool() {
     local areas_json="$1" gen_csv="$2"
 
+    # 1. Aggregate raw rows from each area, optionally filtered by generation.
     local raw='[]'
     local area
     while IFS= read -r area; do
@@ -349,6 +354,7 @@ encounter_build_pool() {
         done <<< "$rows"
     done <<< "$(jq -r '.[]' <<< "$areas_json")"
 
+    # 2. Per-species aggregate min/max/sum(chance).
     local base
     base="$(jq -c '
         group_by(.species) | map({
@@ -359,75 +365,94 @@ encounter_build_pool() {
         })
     ' <<< "$raw")"
 
-    local expanded='[]'
-    local entries
+    # 3. Walk evolution chain for each root, classify each stage into a tier.
+    #    Output a flat list of {species, min, max, tier_idx}.
+    local flat='[]'
+    local entries entry
     entries="$(jq -c '.[]' <<< "$base")"
-    local entry
     while IFS= read -r entry; do
         [[ -z "$entry" ]] && continue
-        local sp min max pct delta
+        local sp min max pct delta root_tier root_idx
         sp="$(jq -r '.species' <<< "$entry")"
         min="$(jq -r '.min' <<< "$entry")"
         max="$(jq -r '.max' <<< "$entry")"
         pct="$(jq -r '.pct' <<< "$entry")"
         delta=$((max - min))
+        root_tier="$(encounter_tier_for_pct "$pct")"
+        root_idx=-1
+        local i
+        for i in 0 1 2 3; do
+            [[ "${ENCOUNTER_TIERS[$i]}" == "$root_tier" ]] && root_idx=$i && break
+        done
 
-        # /pokemon-species expects the BASE species, not a form (e.g.
-        # basculin-blue-striped -> basculin, dugtrio-alola -> dugtrio).
-        # Resolve form -> species via /pokemon/{form}.species.name first.
+        # Resolve form -> base species for the chain lookup.
         local poke_obj species_name
         poke_obj="$(pokeapi_get "pokemon/$sp")" || return 1
         species_name="$(jq -r '.species.name' <<< "$poke_obj")"
 
-        local spec chain_url chain_id
+        local spec chain_url chain_id chain stages
         spec="$(pokeapi_get "pokemon-species/$species_name")" || return 1
         chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
         chain_id="$(basename -- "${chain_url%/}")"
-
-        local chain stages
         chain="$(pokeapi_get "evolution-chain/$chain_id")" || return 1
         stages="$(encounter_walk_chain "$chain")"
 
-        local new_entries
-        new_entries="$(jq -c \
+        local stage_entries
+        stage_entries="$(jq -c \
             --argjson root_min "$min" --argjson root_max "$max" --argjson delta "$delta" \
-            --argjson root_pct "$pct" \
-            --argjson stages "$stages" '
+            --argjson root_idx "$root_idx" --argjson stages "$stages" '
             $stages
             | sort_by(.stage_idx)
             | reduce .[] as $s (
                 {expanded: [], by_idx: {}};
                 if $s.stage_idx == 0 then
-                    .expanded += [{species: $s.species, min: $root_min, max: $root_max,
-                                   pct: $root_pct}]
+                    .expanded += [{
+                        species: $s.species, min: $root_min, max: $root_max,
+                        tier_idx: $root_idx
+                    }]
                     | .by_idx[($s.stage_idx|tostring)] = $root_max
                 else
                     (.by_idx[(($s.stage_idx - 1)|tostring)]) as $parent_max |
                     (if $s.min_level_evo != null then $s.min_level_evo
                      else ($parent_max + 10) end) as $emin |
+                    ([$root_idx + $s.stage_idx, 3] | min) as $tidx |
                     .expanded += [{
-                        species: $s.species,
-                        min: $emin,
-                        max: ($emin + $delta),
-                        pct: ($root_pct / pow(2; $s.stage_idx))
+                        species: $s.species, min: $emin, max: ($emin + $delta),
+                        tier_idx: $tidx
                     }]
                     | .by_idx[($s.stage_idx|tostring)] = ($emin + $delta)
                 end
               )
             | .expanded
         ' <<< 'null')"
-        expanded="$(jq -c --argjson e "$new_entries" '. + $e' <<< "$expanded")"
+        flat="$(jq -c --argjson e "$stage_entries" '. + $e' <<< "$flat")"
     done <<< "$entries"
 
-    local total
-    total="$(jq '[.[].pct] | add' <<< "$expanded")"
-    if [[ "$total" == "0" || "$total" == "null" ]]; then
-        printf '%s' "$expanded"
-        return
-    fi
-    jq -c --argjson total "$total" '
-        map(.pct = (.pct * 100 / $total))
-    ' <<< "$expanded"
+    # 4. Collision dedup: same species in multiple tiers -> keep min tier_idx
+    #    (= most common). Within a tier, merge duplicate species.
+    local deduped
+    deduped="$(jq -c '
+        group_by(.species)
+        | map(
+            (min_by(.tier_idx)) as $win
+            | {
+                species: $win.species,
+                min: ([.[] | select(.tier_idx == $win.tier_idx) | .min] | min),
+                max: ([.[] | select(.tier_idx == $win.tier_idx) | .max] | max),
+                tier_idx: $win.tier_idx
+              }
+          )
+    ' <<< "$flat")"
+
+    # 5. Bucket into tier arrays.
+    jq -c --argjson tiers "$(printf '%s' "[\"common\",\"uncommon\",\"rare\",\"very_rare\"]")" '
+        ($tiers | map({(.) : []}) | add) as $empty
+        | reduce .[] as $e ($empty;
+            ($tiers[$e.tier_idx]) as $name
+            | .[$name] += [{species: $e.species, min: $e.min, max: $e.max}]
+          )
+        | {tiers: .}
+    ' <<< "$deduped"
 }
 
 encounter_pool_path() {
