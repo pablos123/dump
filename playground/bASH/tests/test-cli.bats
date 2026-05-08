@@ -149,7 +149,7 @@ _seed_pokeapi_cache() {
     sqlite3 "$POKIDLE_DB_PATH" \
         "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));"
 
-    local pool='{"biome":"cave","entries":[{"species":"treecko","min":5,"max":7,"pct":100}]}'
+    local pool='{"biome":"cave","built_at":"2026-05-08T00:00:00Z","gen_filter":[],"schema":2,"tiers":{"common":[{"species":"treecko","min":5,"max":7}],"uncommon":[],"rare":[],"very_rare":[]}}'
     mkdir -p "$POKIDLE_CACHE_DIR/pools"
     printf '%s' "$pool" > "$POKIDLE_CACHE_DIR/pools/cave.json"
 
