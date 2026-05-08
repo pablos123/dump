@@ -49,6 +49,7 @@ Commands:
   current                 Show current biome + counts
   rebuild-pool [biome]    Force pool rebuild (one or all)
   rebuild-biomes          Re-classify all /location-area
+  switch-biome <biome>    Close active session, open new session in <biome>
   clean [--yes]           Purge http cache + pools
   setup [--enable]        Install user systemd unit + config dirs
   uninstall               Disable + remove unit (DB/cache untouched)
@@ -472,6 +473,28 @@ pokidle_rebuild_pool() {
     done <<< "$biomes"
 }
 
+pokidle_switch_biome() {
+    local biome="${1-}"
+    if [[ -z "$biome" ]]; then
+        printf 'switch-biome: missing biome id\n' >&2
+        return 2
+    fi
+    if ! biome_get "$biome" > /dev/null 2>&1; then
+        printf 'switch-biome: unknown biome %s\n' "$biome" >&2
+        return 2
+    fi
+    db_init
+    local active sid
+    active="$(db_active_biome_session)"
+    if [[ -n "$active" ]]; then
+        IFS=$'\t' read -r sid _ _ <<< "$active"
+        db_close_biome_session "$sid" "$(date +%s)"
+    fi
+    local new_sid
+    new_sid="$(db_open_biome_session "$biome" "$(date +%s)")"
+    printf 'switched to %s (session %s)\n' "$biome" "$new_sid"
+}
+
 pokidle_rebuild_biomes() {
     mkdir -p -- "$POKIDLE_CACHE_DIR/biome-areas"
     local list
@@ -590,6 +613,7 @@ if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
         current)        pokidle_current "$@" ;;
         rebuild-pool)   pokidle_rebuild_pool "$@" ;;
         rebuild-biomes) pokidle_rebuild_biomes "$@" ;;
+        switch-biome)   pokidle_switch_biome "$@" ;;
         clean)          pokidle_clean "$@" ;;
         setup)          pokidle_setup "$@" ;;
         uninstall)      pokidle_uninstall "$@" ;;
