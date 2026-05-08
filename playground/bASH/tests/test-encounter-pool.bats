@@ -181,3 +181,43 @@ EOF
     run encounter_roll_pool_entry "$pool"
     [ "$status" -ne 0 ]
 }
+
+@test "build_pool: species seen in two tiers ends up in the most-common one" {
+    # Synthetic area: 'aaa' (chance 50 -> common) whose evolution chain also
+    # contains 'bbb'. Separately, 'bbb' is its own entry with chance 5 -> rare.
+    # After dedup, bbb must land in uncommon (common+1 from chain shift),
+    # not rare.
+    pokeapi_get() {
+        case "$1" in
+            location-area/synthetic-area)
+                cat <<'JSON'
+{"name":"synthetic-area","pokemon_encounters":[
+  {"pokemon":{"name":"aaa"},"version_details":[{"version":{"name":"emerald"},
+    "encounter_details":[{"min_level":5,"max_level":7,"chance":50,"method":{"name":"walk"}}]}]},
+  {"pokemon":{"name":"bbb"},"version_details":[{"version":{"name":"emerald"},
+    "encounter_details":[{"min_level":20,"max_level":22,"chance":5,"method":{"name":"walk"}}]}]}
+]}
+JSON
+                ;;
+            pokemon/aaa) printf '{"id":1,"species":{"name":"aaa"}}' ;;
+            pokemon/bbb) printf '{"id":2,"species":{"name":"bbb"}}' ;;
+            pokemon-species/aaa) printf '{"evolution_chain":{"url":"https://x/evolution-chain/1/"}}' ;;
+            pokemon-species/bbb) printf '{"evolution_chain":{"url":"https://x/evolution-chain/2/"}}' ;;
+            evolution-chain/1)
+                printf '%s' '{"chain":{"species":{"name":"aaa"},"evolution_details":[],"evolves_to":[{"species":{"name":"bbb"},"evolution_details":[{"min_level":16}],"evolves_to":[]}]}}'
+                ;;
+            evolution-chain/2)
+                printf '%s' '{"chain":{"species":{"name":"bbb"},"evolution_details":[],"evolves_to":[]}}'
+                ;;
+            *) return 1 ;;
+        esac
+    }
+    export -f pokeapi_get
+
+    local areas='["synthetic-area"]'
+    run encounter_build_pool "$areas" ""
+    [ "$status" -eq 0 ]
+    local bbb_tier
+    bbb_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="bbb") | .key' <<< "$output")"
+    [ "$bbb_tier" = "uncommon" ]
+}
