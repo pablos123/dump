@@ -159,3 +159,25 @@ EOF
     [ "$status" -ne 0 ]
     [[ "$output" == *"rebuild-pool"* ]]
 }
+
+@test "encounter_roll_pool_entry returns species from a populated tier" {
+    local pool='{"schema":2,"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    run encounter_roll_pool_entry "$pool"
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.species' <<< "$output")" = "zubat" ]
+    [ "$(jq -r '.min'     <<< "$output")" = "5" ]
+    [ "$(jq -r '.max'     <<< "$output")" = "8" ]
+}
+
+@test "encounter_roll_pool_entry falls back forward when only very_rare populated" {
+    local pool='{"schema":2,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[{"species":"mew","min":40,"max":40}]}}'
+    run encounter_roll_pool_entry "$pool"
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.species' <<< "$output")" = "mew" ]
+}
+
+@test "encounter_roll_pool_entry errors when all tiers empty" {
+    local pool='{"schema":2,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[]}}'
+    run encounter_roll_pool_entry "$pool"
+    [ "$status" -ne 0 ]
+}

@@ -492,25 +492,31 @@ encounter_pool_load() {
     printf '%s' "$body"
 }
 
-# Weighted random pick from pool object {entries:[{species,min,max,pct}]}.
+# Roll a pool entry from a v2 pool {schema:2, tiers:{...}}.
+# Pick a tier by fixed weights, walk forward to the next non-empty tier on
+# empty bucket, then pick uniformly inside. Errors out if every tier empty.
 encounter_roll_pool_entry() {
     local pool="$1"
-    local r cum=0 picked=""
-    r="$(awk -v s=$RANDOM -v t=$RANDOM 'BEGIN { srand(s*32768+t); printf "%.6f", rand()*100 }')"
-    local entries
-    entries="$(jq -c '.entries[]' <<< "$pool")"
-    local e pct
-    while IFS= read -r e; do
-        [[ -z "$e" ]] && continue
-        pct="$(jq -r '.pct' <<< "$e")"
-        cum="$(awk -v a="$cum" -v b="$pct" 'BEGIN { printf "%.6f", a+b }')"
-        if awk -v r="$r" -v c="$cum" 'BEGIN { exit !(r <= c) }'; then
-            picked="$e"
+    local roll=$((RANDOM % 100))
+    local cum=0 i tier_idx=0 step name n arr_idx
+    for i in 0 1 2 3; do
+        cum=$(( cum + ENCOUNTER_TIER_ROLL_WEIGHT[i] ))
+        if (( roll < cum )); then
+            tier_idx=$i
             break
         fi
-    done <<< "$entries"
-    [[ -z "$picked" ]] && picked="$(jq -c '.entries[-1]' <<< "$pool")"
-    printf '%s' "$picked"
+    done
+    for step in 0 1 2 3; do
+        name="${ENCOUNTER_TIERS[$(( (tier_idx + step) % 4 ))]}"
+        n="$(jq --arg t "$name" '.tiers[$t] | length' <<< "$pool")"
+        if (( n > 0 )); then
+            arr_idx=$(( RANDOM % n ))
+            jq -c --arg t "$name" --argjson i "$arr_idx" '.tiers[$t][$i]' <<< "$pool"
+            return 0
+        fi
+    done
+    printf 'encounter_roll_pool_entry: pool has no entries in any tier\n' >&2
+    return 1
 }
 
 # encounter_roll_pokemon <entry_json> <biome_id>
