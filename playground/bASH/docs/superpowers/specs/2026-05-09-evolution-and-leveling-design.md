@@ -1,4 +1,4 @@
-# Evolution + Level-Up Loops — Design
+# Evolution + Level-Up + Friendship Loops — Design
 
 Date: 2026-05-09
 Status: Pending plan + implementation
@@ -14,20 +14,22 @@ without requiring active play.
 
 1. **Level-up loop:** every hour, each current-week encounter has a small
    chance to gain a level. Stats are recomputed in place.
-2. **Evolution loop:** every biome rotation, each current-week encounter is
+2. **Friendship loop:** every 30 min, each current-week encounter has a
+   chance to gain friendship. Used by friendship-gated evolutions.
+3. **Evolution loop:** every biome rotation, each current-week encounter is
    checked for evolution eligibility. On a tier-weighted roll, it evolves —
    species, dex_id, sprite, and stats updated in place.
 
 ## Non-goals
 
-- No new tables or schema columns. Both loops UPDATE existing encounter rows
-  and (for item evolutions) DELETE rows from `item_drops`.
-- No tracking of friendship, affection, beauty, party composition, weather,
-  trade partners, or held items. These conditions become "soft" (always-
-  viable) for evolutions that depend on them.
+- No tracking of affection, beauty, party composition, weather, trade
+  partners, or held items. These conditions remain "soft" (always-viable)
+  for evolutions that depend on them.
 - No backfill. Encounters predating the loop deployment are not retroactively
   leveled or evolved; they only enter the candidate set if they fall within
   the current ISO week (Mon 00:00 local — Sun 23:59 local).
+- One schema change only: add `friendship` column to `encounters`. No new
+  tables.
 
 ## Definitions
 
@@ -38,6 +40,19 @@ without requiring active play.
 - **Tier of an encounter** at evolution time: the tier the species occupies
   in the *current biome's* cached pool. If the species is not present in any
   tier of the current biome's pool, default to `common`.
+
+## Schema change
+
+```sql
+ALTER TABLE encounters ADD COLUMN friendship INTEGER NOT NULL DEFAULT 70;
+```
+
+`70` is PokeAPI's most-common base_happiness — applied to legacy rows that
+predate the change (idle decay/growth doesn't apply to them anyway since
+they fall outside the current-week window).
+
+New encounters get the species' `base_happiness` from
+`/pokemon-species/<sp>` (cached). Stored at insert time.
 
 ## Loop A — Level-up
 
@@ -83,7 +98,35 @@ Reuse `encounter_compute_all_stats` from `lib/encounter.bash`. Inputs:
 - `level`: new level
 - `mods_str`: from `encounter_nature_mods <nature>`
 
-## Loop B — Evolution
+## Loop B — Friendship
+
+### Trigger
+
+`POKIDLE_FRIENDSHIP_INTERVAL` (default `1800`, seconds — 30 min). 4th daemon
+timer alongside pokemon/item/level. Persisted to `daemon_state` under
+`last_friendship_tick_target`.
+
+### Per-iteration behavior
+
+For each current-week candidate, in encounter-row order:
+
+1. If `friendship >= 255`, skip.
+2. Roll `RANDOM % 100`. If `>= 50`, skip (50% no-op rate).
+3. `friendship := min(255, friendship + 5)`.
+4. UPDATE the encounter row: `friendship` only.
+
+### CLI
+
+`pokidle tick friendship` runs one iteration manually. `--dry-run`,
+`--no-notify`, `--json`. JSON shape:
+
+```json
+{ "befriended": [{"id": 42, "species": "golbat", "from": 70, "to": 75}, …] }
+```
+
+Daemon mode: silent. No notification per friendship gain.
+
+## Loop C — Evolution
 
 ### Trigger
 Fires once per biome rotation, immediately after the new biome session is
@@ -120,6 +163,8 @@ for evo in next_evos:
         if rule == 1 and not (atk > def): continue
         if rule == -1 and not (def > atk): continue
         if rule == 0 and atk != def: continue
+    if evo.min_happiness exists and encounter.friendship < evo.min_happiness:
+        continue
 
     # Item path:
     if evo has evolution_item or held_item or trigger == "use-item":
@@ -129,9 +174,9 @@ for evo in next_evos:
         # else: skip — strict requirement
         continue
 
-    # Soft / synthetic path: friendship, affection, beauty, trade, party_*,
-    # weather, upside_down, special triggers, anything else not strictly
-    # checkable. Always viable.
+    # Soft / synthetic path: affection, beauty, trade, party_*, weather,
+    # upside_down, special triggers, anything else not strictly checkable.
+    # Always viable.
     viable += {evo: evo, kind: "synthetic"}
 
 if viable empty: skip candidate
@@ -185,15 +230,21 @@ Notification: silent (each evolution is rare-ish; daemon mode emits a
 
 ## Schema
 
-No changes. Reuses:
+One column added to `encounters` (see Schema change section above):
 
-- `encounters` (UPDATE: level, stats, species, dex_id, sprite_url)
+- `friendship INTEGER NOT NULL DEFAULT 70`
+
+Reused unchanged:
+
+- `encounters` (UPDATE: level, stats, friendship, species, dex_id, sprite_url)
 - `item_drops` (DELETE on item-path evolution)
-- `daemon_state` (new key: `last_level_tick_target`)
+- `daemon_state` (new keys: `last_level_tick_target`,
+  `last_friendship_tick_target`)
 
 ## Tests
 
-`tests/test-evolution.bats` and `tests/test-leveling.bats` (new files):
+`tests/test-evolution.bats`, `tests/test-leveling.bats`,
+`tests/test-friendship.bats` (new files):
 
 **Leveling:**
 - `pokidle tick level --dry-run` outputs JSON with `leveled` array.
@@ -202,14 +253,24 @@ No changes. Reuses:
 - Candidate at level 100 → skipped.
 - Candidate older than current week → skipped.
 
+**Friendship:**
+- `pokidle tick friendship --dry-run` outputs JSON with `befriended` array.
+- Eligible candidate: roll < 50 → friendship += 5.
+- Candidate at 255 → skipped.
+- New encounter inserts `friendship` from species' `base_happiness`.
+- Cap at 255 verified.
+
 **Evolution:**
 - Hard filters block evos: female-required + male encounter → skipped;
   level-required + below threshold → skipped; item-required + item not in
-  `item_drops` → skipped; time-of-day mismatch → skipped.
+  `item_drops` → skipped; time-of-day mismatch → skipped;
+  min_happiness-required + friendship below → skipped.
 - Soft synthetic path: zigzagoon level 3 with synthetic ralts→linoone-like
   setup → still viable, evolves on tier-pass roll.
 - Item path: eevee + water-stone in item_drops + tier-pass roll → evolves to
   vaporeon, item_drops loses one water-stone row.
+- Friendship path: golbat at friendship=220+ → eligible for crobat (strict),
+  evolves on tier-pass roll.
 - Branching evos (eevee with multiple stones in DB): viable list contains
   every stone-backed path; uniform pick verified by stubbed RANDOM.
 - Tier lookup: pokemon present in pool → its tier used; pokemon absent →
@@ -218,12 +279,16 @@ No changes. Reuses:
 
 ## Migration / rollout
 
-No migrations. Loops respect `POKIDLE_EVOLVE_ENABLED` and a missing
-`last_level_tick_target` defaults to "fire on next iteration."
+One schema migration: `ALTER TABLE encounters ADD COLUMN friendship …`.
+Applied idempotently in `db_init` (existing logic — schema bumps land via
+the same `IF NOT EXISTS` / pragma path used elsewhere in `lib/db.bash`).
+
+Loops respect `POKIDLE_EVOLVE_ENABLED`. Missing
+`last_{level,friendship}_tick_target` defaults to "fire on next iteration."
 
 ## Out of scope
 
-- Notifications per level-up.
+- Notifications per level-up or friendship gain.
 - Held-item slot on encounters (currently only `held_berry`).
-- Friendship/happiness tracking.
+- Affection / beauty tracking.
 - Mega evolution / Gigantamax / regional forms.
