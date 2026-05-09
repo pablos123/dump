@@ -75,6 +75,7 @@ def sqstr: if . == null then "NULL" else "'" + (tostring | gsub("'"; "''")) + "'
 "INSERT INTO encounters (
     session_id, encountered_at, species, dex_id, level,
     nature, ability, is_hidden_ability, gender, shiny, held_berry,
+    friendship,
     iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
     ev_hp, ev_atk, ev_def, ev_spa, ev_spd, ev_spe,
     stat_hp, stat_atk, stat_def, stat_spa, stat_spd, stat_spe,
@@ -91,6 +92,7 @@ def sqstr: if . == null then "NULL" else "'" + (tostring | gsub("'"; "''")) + "'
     \(.gender | sqstr),
     \(.shiny),
     \(.held_berry | sqstr),
+    \(.friendship),
     \(.ivs[0]), \(.ivs[1]), \(.ivs[2]), \(.ivs[3]), \(.ivs[4]), \(.ivs[5]),
     \(.evs[0]), \(.evs[1]), \(.evs[2]), \(.evs[3]), \(.evs[4]), \(.evs[5]),
     \(.stats[0]), \(.stats[1]), \(.stats[2]), \(.stats[3]), \(.stats[4]), \(.stats[5]),
