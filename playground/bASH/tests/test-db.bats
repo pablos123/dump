@@ -266,3 +266,35 @@ teardown() {
     run db_insert_item_drop "abc" 1700000300 "everstone" ""
     [ "$status" -ne 0 ]
 }
+
+@test "db_init creates encounters with friendship column (default 70)" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    local cols
+    cols="$(sqlite3 "$POKIDLE_DB_PATH" "PRAGMA table_info(encounters);" | grep '|friendship|')"
+    [[ -n "$cols" ]]
+    [[ "$cols" == *"|70|"* ]]
+}
+
+@test "db_init adds friendship column to legacy DB without recreate" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    # Hand-build a v1 schema (no friendship).
+    sqlite3 "$POKIDLE_DB_PATH" "
+        CREATE TABLE biome_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, biome_id TEXT NOT NULL, started_at INTEGER NOT NULL, ended_at INTEGER);
+        CREATE TABLE encounters (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, encountered_at INTEGER NOT NULL, species TEXT NOT NULL, dex_id INTEGER NOT NULL, level INTEGER NOT NULL, nature TEXT NOT NULL, ability TEXT NOT NULL, is_hidden_ability INTEGER NOT NULL, gender TEXT NOT NULL, shiny INTEGER NOT NULL, held_berry TEXT, iv_hp INTEGER, iv_atk INTEGER, iv_def INTEGER, iv_spa INTEGER, iv_spd INTEGER, iv_spe INTEGER, ev_hp INTEGER, ev_atk INTEGER, ev_def INTEGER, ev_spa INTEGER, ev_spd INTEGER, ev_spe INTEGER, stat_hp INTEGER, stat_atk INTEGER, stat_def INTEGER, stat_spa INTEGER, stat_spd INTEGER, stat_spe INTEGER, moves_json TEXT NOT NULL, sprite_path TEXT);
+        CREATE TABLE item_drops (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, encountered_at INTEGER NOT NULL, item TEXT NOT NULL, sprite_path TEXT);
+        CREATE TABLE daemon_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level, nature, ability, is_hidden_ability, gender, shiny, moves_json) VALUES (1, 1700000000, 'rattata', 19, 5, 'hardy', 'guts', 0, 'M', 0, '[]');
+    "
+    load_lib db
+    db_init
+    local fr
+    fr="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT friendship FROM encounters WHERE id=1;")"
+    [ "$fr" = "70" ]
+}
