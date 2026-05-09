@@ -144,11 +144,32 @@ biome_classify_area() {
     fi
 }
 
+: "${BIOME_MIN_POOL_SIZE:=10}"
+
+# Total entries across all tiers in the cached pool for <biome>. 0 if the
+# pool file is missing.
+_biome_pool_size() {
+    local id="$1"
+    local p="${POKIDLE_CACHE_DIR:-$HOME/.cache/pokidle}/pools/$id.json"
+    [[ -f "$p" ]] || { printf '0'; return; }
+    jq '[.tiers[] | length] | add // 0' "$p"
+}
+
+# Echoes ids whose pool has more than $BIOME_MIN_POOL_SIZE entries.
+_biome_eligible_ids() {
+    local id n
+    while IFS= read -r id; do
+        [[ -z "$id" ]] && continue
+        n="$(_biome_pool_size "$id")"
+        (( n > BIOME_MIN_POOL_SIZE )) && printf '%s\n' "$id"
+    done < <(biome_ids)
+}
+
 biome_pick_random() {
     local ids n idx
-    mapfile -t ids < <(biome_ids)
+    mapfile -t ids < <(_biome_eligible_ids)
     n="${#ids[@]}"
-    (( n > 0 )) || { printf 'biome_pick_random: no biomes\n' >&2; return 1; }
+    (( n > 0 )) || { printf 'biome_pick_random: no biome with pool>%d entries\n' "$BIOME_MIN_POOL_SIZE" >&2; return 1; }
     idx=$((RANDOM % n))
     printf '%s' "${ids[$idx]}"
 }
@@ -156,7 +177,7 @@ biome_pick_random() {
 biome_pick_random_excluding() {
     local exclude="$1"
     local ids filtered idx n
-    mapfile -t ids < <(biome_ids)
+    mapfile -t ids < <(_biome_eligible_ids)
     filtered=()
     local id
     for id in "${ids[@]}"; do
