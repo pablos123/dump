@@ -587,6 +587,17 @@ encounter_roll_pokemon() {
         }'
 }
 
+# Pull species base_happiness from PokeAPI. Defaults to 70 if missing.
+encounter_roll_friendship() {
+    local species="$1"
+    local spec
+    spec="$(pokeapi_get "pokemon-species/$species")" || return 1
+    local val
+    val="$(jq -r '.base_happiness // 70' <<< "$spec")"
+    [[ "$val" == "null" || -z "$val" ]] && val=70
+    printf '%s' "$val"
+}
+
 # encounter_roll_item <biome_id>
 # Emits {"item": "<name>", "sprite_url": "<url|empty>"}.
 encounter_roll_item() {
