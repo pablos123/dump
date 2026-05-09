@@ -325,6 +325,97 @@ teardown() {
     [ "$(jq -r '.[0].species' <<< "$output")" = "pidgey" ]
 }
 
+@test "db_update_encounter_level_stats updates level + 6 stat columns" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json,
+            friendship, stat_hp, stat_atk, stat_def, stat_spa, stat_spd, stat_spe)
+            VALUES (1, 1700000000, 'rattata', 19, 5, 'hardy', 'guts', 0, 'M', 0, '[]',
+                70, 20, 11, 10, 8, 9, 14);"
+    run db_update_encounter_level_stats 1 6 "21 12 11 9 10 15"
+    [ "$status" -eq 0 ]
+    local row
+    row="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "SELECT level||','||stat_hp||','||stat_atk||','||stat_def||','||stat_spa||','||stat_spd||','||stat_spe FROM encounters WHERE id=1;")"
+    [ "$row" = "6,21,12,11,9,10,15" ]
+}
+
+@test "db_update_encounter_friendship caps at 255" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship)
+            VALUES (1, 1700000000, 'rattata', 19, 5, 'hardy', 'guts', 0, 'M', 0, '[]', 70);"
+    db_update_encounter_friendship 1 75
+    local v
+    v="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT friendship FROM encounters WHERE id=1;")"
+    [ "$v" = "75" ]
+}
+
+@test "db_update_encounter_evolved updates species, dex_id, sprite, stats" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json,
+            friendship, sprite_path)
+            VALUES (1, 1700000000, 'eevee', 133, 20, 'hardy', 'run-away', 0, 'M', 0, '[]',
+                70, 'old.png');"
+    db_update_encounter_evolved 1 vaporeon 134 "new.png" "60 30 30 50 50 30"
+    local row
+    row="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "SELECT species||','||dex_id||','||sprite_path||','||stat_hp||','||stat_atk||','||stat_def||','||stat_spa||','||stat_spd||','||stat_spe FROM encounters WHERE id=1;")"
+    [ "$row" = "vaporeon,134,new.png,60,30,30,50,50,30" ]
+}
+
+@test "db_delete_one_item_drop deletes oldest matching row only" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO item_drops(session_id, encountered_at, item) VALUES
+            (1, 100, 'water-stone'),
+            (1, 200, 'water-stone'),
+            (1, 300, 'fire-stone');"
+    run db_delete_one_item_drop water-stone
+    [ "$status" -eq 0 ]
+    [ "$output" = "1" ]
+    local n_water n_fire
+    n_water="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM item_drops WHERE item='water-stone';")"
+    n_fire="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM item_drops WHERE item='fire-stone';")"
+    [ "$n_water" = "1" ]
+    [ "$n_fire" = "1" ]
+}
+
+@test "db_delete_one_item_drop returns 0 when no match" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    run db_delete_one_item_drop never-stone
+    [ "$status" -eq 0 ]
+    [ "$output" = "0" ]
+}
+
 @test "db_init adds friendship column to legacy DB without recreate" {
     POKIDLE_DB_PATH="$(make_tmp_db)"
     POKIDLE_REPO_ROOT="$REPO_ROOT"

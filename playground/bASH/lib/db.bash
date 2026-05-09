@@ -184,6 +184,66 @@ db_list_current_week_encounters() {
         ORDER BY id ASC;"
 }
 
+# Update level + stat_* columns of encounter <id>.
+# stats_str is "hp atk def spa spd spe" (space-separated integers).
+db_update_encounter_level_stats() {
+    local id="$1" level="$2" stats_str="$3"
+    _db_assert_int "$id" id || return $?
+    _db_assert_int "$level" level || return $?
+    local stats=($stats_str)
+    local s
+    for s in "${stats[@]}"; do
+        _db_assert_int "$s" stat || return $?
+    done
+    db_exec "UPDATE encounters
+        SET level=$level,
+            stat_hp=${stats[0]}, stat_atk=${stats[1]}, stat_def=${stats[2]},
+            stat_spa=${stats[3]}, stat_spd=${stats[4]}, stat_spe=${stats[5]}
+        WHERE id=$id;"
+}
+
+db_update_encounter_friendship() {
+    local id="$1" friendship="$2"
+    _db_assert_int "$id" id || return $?
+    _db_assert_int "$friendship" friendship || return $?
+    db_exec "UPDATE encounters SET friendship=$friendship WHERE id=$id;"
+}
+
+# Update species/dex_id/sprite_path + 6 stat columns after evolution.
+db_update_encounter_evolved() {
+    local id="$1" species="$2" dex_id="$3" sprite="$4" stats_str="$5"
+    _db_assert_int "$id" id || return $?
+    _db_assert_int "$dex_id" dex_id || return $?
+    local stats=($stats_str)
+    local s
+    for s in "${stats[@]}"; do
+        _db_assert_int "$s" stat || return $?
+    done
+    local sprite_sql="NULL"
+    [[ -n "$sprite" ]] && sprite_sql="'${sprite//\'/\'\'}'"
+    db_exec "UPDATE encounters
+        SET species='${species//\'/\'\'}', dex_id=$dex_id, sprite_path=$sprite_sql,
+            stat_hp=${stats[0]}, stat_atk=${stats[1]}, stat_def=${stats[2]},
+            stat_spa=${stats[3]}, stat_spd=${stats[4]}, stat_spe=${stats[5]}
+        WHERE id=$id;"
+}
+
+# Delete the oldest item_drops row whose item equals <name>. Prints count
+# of deleted rows (0 or 1).
+db_delete_one_item_drop() {
+    local item="$1"
+    local id
+    id="$(db_query "SELECT id FROM item_drops
+                    WHERE item='${item//\'/\'\'}'
+                    ORDER BY id ASC LIMIT 1;")"
+    if [[ -z "$id" ]]; then
+        printf '0'
+        return 0
+    fi
+    db_exec "DELETE FROM item_drops WHERE id=$id;"
+    printf '1'
+}
+
 db_state_set() {
     local key="$1" value="$2"
     db_exec "INSERT INTO daemon_state(key, value) VALUES ('${key//\'/\'\'}', '${value//\'/\'\'}')
