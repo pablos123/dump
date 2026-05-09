@@ -107,6 +107,7 @@ teardown() {
         "gender": "M",
         "shiny": 0,
         "held_berry": null,
+        "friendship": 70,
         "ivs": [10,20,30,15,5,25],
         "evs": [0,0,0,0,0,0],
         "stats": [22,18,15,12,15,30],
@@ -127,8 +128,8 @@ teardown() {
     local sid
     sid="$(db_open_biome_session 'cave' 1700000000)"
 
-    db_insert_encounter '{"session_id":'"$sid"',"encountered_at":1700000100,"species":"zubat","dex_id":41,"level":7,"nature":"adamant","ability":"inner-focus","is_hidden_ability":0,"gender":"M","shiny":0,"held_berry":null,"ivs":[1,2,3,4,5,6],"evs":[0,0,0,0,0,0],"stats":[10,10,10,10,10,10],"moves":["bite"],"sprite_path":null}'
-    db_insert_encounter '{"session_id":'"$sid"',"encountered_at":1700000200,"species":"pidgey","dex_id":16,"level":3,"nature":"jolly","ability":"keen-eye","is_hidden_ability":0,"gender":"F","shiny":1,"held_berry":"oran","ivs":[31,31,31,31,31,31],"evs":[0,0,0,0,0,0],"stats":[20,20,20,20,20,20],"moves":["tackle"],"sprite_path":null}'
+    db_insert_encounter '{"session_id":'"$sid"',"encountered_at":1700000100,"species":"zubat","dex_id":41,"level":7,"nature":"adamant","ability":"inner-focus","is_hidden_ability":0,"gender":"M","shiny":0,"held_berry":null,"friendship":70,"ivs":[1,2,3,4,5,6],"evs":[0,0,0,0,0,0],"stats":[10,10,10,10,10,10],"moves":["bite"],"sprite_path":null}'
+    db_insert_encounter '{"session_id":'"$sid"',"encountered_at":1700000200,"species":"pidgey","dex_id":16,"level":3,"nature":"jolly","ability":"keen-eye","is_hidden_ability":0,"gender":"F","shiny":1,"held_berry":"oran","friendship":70,"ivs":[31,31,31,31,31,31],"evs":[0,0,0,0,0,0],"stats":[20,20,20,20,20,20],"moves":["tackle"],"sprite_path":null}'
 
     run db_list_encounters --shiny --limit 10
     [ "$status" -eq 0 ]
@@ -191,6 +192,7 @@ teardown() {
         species: "o'\''ranberry-mon", dex_id: 1, level: 1,
         nature: "ada'\''mant", ability: "inner-focus", is_hidden_ability: 0,
         gender: "M", shiny: 0, held_berry: "king'\''s-rock-berry",
+        friendship: 70,
         ivs: [1,2,3,4,5,6], evs: [0,0,0,0,0,0],
         stats: [10,10,10,10,10,10],
         moves: ["bi'\''te"], sprite_path: null
@@ -277,6 +279,22 @@ teardown() {
     cols="$(sqlite3 "$POKIDLE_DB_PATH" "PRAGMA table_info(encounters);" | grep '|friendship|')"
     [[ -n "$cols" ]]
     [[ "$cols" == *"|70|"* ]]
+}
+
+@test "db_insert_encounter persists friendship value" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);"
+    local enc
+    enc='{"session_id":1,"encountered_at":1700000000,"species":"eevee","dex_id":133,"level":5,"nature":"hardy","ability":"run-away","is_hidden_ability":0,"gender":"M","shiny":0,"held_berry":null,"friendship":50,"ivs":[10,10,10,10,10,10],"evs":[0,0,0,0,0,0],"stats":[20,11,11,11,11,11],"moves":["tackle"],"sprite_path":""}'
+    db_insert_encounter "$enc"
+    local fr
+    fr="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT friendship FROM encounters WHERE id=1;")"
+    [ "$fr" = "50" ]
 }
 
 @test "db_init adds friendship column to legacy DB without recreate" {

@@ -36,6 +36,7 @@ teardown() {
         species: "zubat", dex_id: 41, level: 7,
         nature: "adamant", ability: "inner-focus", is_hidden_ability: 0,
         gender: "M", shiny: 0, held_berry: null,
+        friendship: 70,
         ivs: [10,20,30,15,5,25], evs: [0,0,0,0,0,0],
         stats: [22,18,15,12,15,30],
         moves: ["leech-life","supersonic","astonish","bite"],
