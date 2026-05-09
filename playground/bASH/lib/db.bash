@@ -171,6 +171,19 @@ db_list_item_drops() {
     db_query_json "$sql"
 }
 
+# Returns JSON array of encounter rows whose encountered_at falls within
+# the current local ISO week (Mon 00:00 — Sun 23:59:59).
+db_list_current_week_encounters() {
+    local mon_ts sun_ts
+    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-mon -v0H -v0M -v0S +%s)"
+    sun_ts=$((mon_ts + 7*86400 - 1))
+    db_query_json "
+        SELECT * FROM encounters
+        WHERE encountered_at BETWEEN $mon_ts AND $sun_ts
+        ORDER BY id ASC;"
+}
+
 db_state_set() {
     local key="$1" value="$2"
     db_exec "INSERT INTO daemon_state(key, value) VALUES ('${key//\'/\'\'}', '${value//\'/\'\'}')

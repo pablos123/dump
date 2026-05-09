@@ -297,6 +297,34 @@ teardown() {
     [ "$fr" = "50" ]
 }
 
+@test "db_list_current_week_encounters returns rows in current ISO week only" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+
+    # Compute Monday 00:00 local of this week.
+    local mon_ts now
+    now="$(date +%s)"
+    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-mon -v0H -v0M -v0S +%s)"
+    local last_week=$((mon_ts - 7*86400))
+    local this_week=$((mon_ts + 3*86400))
+
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $mon_ts);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship)
+            VALUES (1, $last_week, 'rattata', 19, 3, 'hardy', 'guts', 0, 'M', 0, '[]', 70),
+                   (1, $this_week, 'pidgey',  16, 4, 'hardy', 'keen-eye', 0, 'M', 0, '[]', 70);
+    "
+    run db_list_current_week_encounters
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "1" ]
+    [ "$(jq -r '.[0].species' <<< "$output")" = "pidgey" ]
+}
+
 @test "db_init adds friendship column to legacy DB without recreate" {
     POKIDLE_DB_PATH="$(make_tmp_db)"
     POKIDLE_REPO_ROOT="$REPO_ROOT"
