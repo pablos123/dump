@@ -222,6 +222,17 @@ setup() {
     [ "$output" = "70" ]
 }
 
+@test "encounter_roll_pokemon: encounter JSON includes friendship from species" {
+    # Reuse existing fixtures + override pokeapi_get for species call.
+    local entry='{"species":"treecko","min":5,"max":7}'
+    run encounter_roll_pokemon "$entry" "forest"
+    [ "$status" -eq 0 ]
+    local fr
+    fr="$(jq -r '.friendship' <<< "$output")"
+    [[ "$fr" =~ ^[0-9]+$ ]]
+    (( fr >= 0 && fr <= 255 ))
+}
+
 @test "encounter_roll_pokemon: full encounter has all required keys" {
     POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
     mkdir -p "$POKIDLE_CONFIG_DIR"

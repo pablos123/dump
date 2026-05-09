@@ -565,6 +565,9 @@ encounter_roll_pokemon() {
     local final_sprite="$sprite_url"
     [[ "$shiny" == "1" && -n "$sprite_url_shiny" ]] && final_sprite="$sprite_url_shiny"
 
+    local friendship
+    friendship="$(encounter_roll_friendship "$sp")" || return 1
+
     local berry_arg
     if [[ "$held_berry" == "null" ]]; then berry_arg="null"; else berry_arg="\"$held_berry\""; fi
 
@@ -577,11 +580,13 @@ encounter_roll_pokemon() {
         --arg sp "$sp" --argjson dex "$dex_id" --argjson lvl "$level" \
         --arg nature "$nature" --arg ability "$ability" --argjson hidden "$is_hidden" \
         --arg gender "$gender" --argjson shiny "$shiny" --argjson held "$berry_arg" \
+        --argjson friendship "$friendship" \
         --argjson ivs "$ivs_json" --argjson evs "$evs_json" --argjson stats "$stats_json" \
         --argjson moves "$moves_json" --arg sprite "$final_sprite" '{
             species: $sp, dex_id: $dex, level: $lvl,
             nature: $nature, ability: $ability, is_hidden_ability: $hidden,
             gender: $gender, shiny: $shiny, held_berry: $held,
+            friendship: $friendship,
             ivs: $ivs, evs: $evs, stats: $stats,
             moves: $moves, sprite_url: $sprite
         }'
