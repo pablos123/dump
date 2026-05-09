@@ -196,6 +196,32 @@ setup() {
     [[ "$sprite" == *"$item.png"* ]]
 }
 
+@test "encounter_roll_friendship returns species base_happiness" {
+    # Stub returns a /pokemon-species response with base_happiness=50.
+    pokeapi_get() {
+        case "$1" in
+            pokemon-species/eevee)
+                printf '{"base_happiness":50}'
+                ;;
+            *) return 1 ;;
+        esac
+    }
+    export -f pokeapi_get
+    run encounter_roll_friendship eevee
+    [ "$status" -eq 0 ]
+    [ "$output" = "50" ]
+}
+
+@test "encounter_roll_friendship defaults to 70 if base_happiness missing" {
+    pokeapi_get() {
+        printf '{}'
+    }
+    export -f pokeapi_get
+    run encounter_roll_friendship some-species
+    [ "$status" -eq 0 ]
+    [ "$output" = "70" ]
+}
+
 @test "encounter_roll_pokemon: full encounter has all required keys" {
     POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
     mkdir -p "$POKIDLE_CONFIG_DIR"
