@@ -49,7 +49,7 @@ _seed_friendly() {
     _seed_friendly 254
     local i hit=0 out
     for i in {1..30}; do
-        out="$("$REPO_ROOT/pokidle" tick friendship --no-notify --json 2>/dev/null)"
+        out="$("$REPO_ROOT/pokidle" tick friendship --no-dry-run --no-notify --json 2>/dev/null)"
         local n
         n="$(jq '.befriended | length' <<< "$out")"
         if (( n > 0 )); then
