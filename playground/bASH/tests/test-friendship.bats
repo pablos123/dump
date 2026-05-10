@@ -74,3 +74,27 @@ _seed_friendly() {
     done
     [ "$leveled_max" = "0" ]
 }
+
+@test "pokidle tick friendship: encounter older than current week is not touched" {
+    local dow mon_ts old_ts
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
+    old_ts=$((mon_ts - 7*86400))
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', $old_ts);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship)
+            VALUES (1, $old_ts, 'rattata', 19, 5, 'hardy', 'guts', 0, 'M', 0, '[]', 70);"
+
+    local i out hit_max=0
+    for i in {1..30}; do
+        out="$("$REPO_ROOT/pokidle" tick friendship --dry-run --no-notify --json 2>/dev/null)"
+        local n="$(jq '.befriended | length' <<< "$out")"
+        (( n > hit_max )) && hit_max=$n
+    done
+    [ "$hit_max" = "0" ]
+    local fr
+    fr="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT friendship FROM encounters WHERE id=1;")"
+    [ "$fr" = "70" ]
+}

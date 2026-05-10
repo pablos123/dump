@@ -101,3 +101,32 @@ _seed_rattata_in_current_week() {
     done
     [ "$leveled_max" = "0" ]
 }
+
+@test "pokidle tick level: encounter older than current week is not touched" {
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    local dow mon_ts old_ts
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
+    old_ts=$((mon_ts - 7*86400))   # last week
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', $old_ts);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json,
+            friendship, iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
+            ev_hp, ev_atk, ev_def, ev_spa, ev_spd, ev_spe,
+            stat_hp, stat_atk, stat_def, stat_spa, stat_spd, stat_spe)
+            VALUES (1, $old_ts, 'rattata', 19, 5, 'hardy', 'guts', 0, 'M', 0, '[]', 70,
+                10,10,10,10,10,10, 0,0,0,0,0,0, 17, 13, 11, 9, 10, 14);"
+
+    local i out leveled_max=0
+    for i in {1..30}; do
+        out="$("$REPO_ROOT/pokidle" tick level --dry-run --no-notify --json 2>/dev/null)"
+        local n="$(jq '.leveled | length' <<< "$out")"
+        (( n > leveled_max )) && leveled_max=$n
+    done
+    [ "$leveled_max" = "0" ]
+    local lvl
+    lvl="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT level FROM encounters WHERE id=1;")"
+    [ "$lvl" = "5" ]
+}

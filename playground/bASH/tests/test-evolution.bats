@@ -299,3 +299,58 @@ EOF
     n="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM item_drops WHERE item='water-stone';")"
     [ "$n" = "1" ]
 }
+
+@test "evolution_enumerate_viable_paths: branching evos with multiple stones in DB" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO item_drops(session_id, encountered_at, item) VALUES
+            (1, 1, 'water-stone'),
+            (1, 2, 'thunder-stone'),
+            (1, 3, 'fire-stone');"
+    local enc='{"gender":"M","level":20,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
+    # Three eevee stone-evos all viable since all stones present.
+    local stages='[
+      {"species":"vaporeon","evolution_details":[
+        {"item":{"name":"water-stone"},"trigger":{"name":"use-item"}}]},
+      {"species":"jolteon","evolution_details":[
+        {"item":{"name":"thunder-stone"},"trigger":{"name":"use-item"}}]},
+      {"species":"flareon","evolution_details":[
+        {"item":{"name":"fire-stone"},"trigger":{"name":"use-item"}}]}
+    ]'
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "3" ]
+    # Each tier path is item kind, with the right item name attached.
+    [ "$(jq -r '.[] | select(.species=="vaporeon") | .item' <<< "$output")" = "water-stone" ]
+    [ "$(jq -r '.[] | select(.species=="jolteon") | .item' <<< "$output")" = "thunder-stone" ]
+    [ "$(jq -r '.[] | select(.species=="flareon") | .item' <<< "$output")" = "fire-stone" ]
+    [ "$(jq -r '[.[] | .kind] | unique[]' <<< "$output")" = "item" ]
+}
+
+@test "evolution_enumerate_viable_paths: missing stones reduce viable list" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);
+        INSERT INTO item_drops(session_id, encountered_at, item) VALUES
+            (1, 1, 'fire-stone');"
+    local enc='{"gender":"M","level":20,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
+    local stages='[
+      {"species":"vaporeon","evolution_details":[
+        {"item":{"name":"water-stone"},"trigger":{"name":"use-item"}}]},
+      {"species":"flareon","evolution_details":[
+        {"item":{"name":"fire-stone"},"trigger":{"name":"use-item"}}]}
+    ]'
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "1" ]
+    [ "$(jq -r '.[0].species' <<< "$output")" = "flareon" ]
+}
