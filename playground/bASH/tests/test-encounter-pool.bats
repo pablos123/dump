@@ -170,6 +170,41 @@ setup() {
     [ "$status" -ne 0 ]
 }
 
+@test "evolution_tier_lookup returns tier name for species in pool" {
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_CACHE_DIR
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    cat > "$POKIDLE_CACHE_DIR/pools/cave.json" <<'EOF'
+{"biome":"cave","schema":2,"tiers":{
+  "common":[{"species":"zubat","min":5,"max":8}],
+  "uncommon":[{"species":"golbat","min":22,"max":25}],
+  "rare":[],"very_rare":[]
+}}
+EOF
+    source "$REPO_ROOT/lib/evolution.bash"
+    [ "$(evolution_tier_lookup cave zubat)" = "common" ]
+    [ "$(evolution_tier_lookup cave golbat)" = "uncommon" ]
+    [ "$(evolution_tier_lookup cave mew)" = "common" ]   # absent → default
+}
+
+@test "evolution_next_stages returns species + evolution_details one stage past root" {
+    source "$REPO_ROOT/lib/evolution.bash"
+    local chain='{"chain":{
+      "species":{"name":"eevee"},"evolution_details":[],
+      "evolves_to":[
+        {"species":{"name":"vaporeon"},"evolution_details":[
+          {"item":{"name":"water-stone"},"trigger":{"name":"use-item"}}],
+         "evolves_to":[]},
+        {"species":{"name":"jolteon"},"evolution_details":[
+          {"item":{"name":"thunder-stone"},"trigger":{"name":"use-item"}}],
+         "evolves_to":[]}]}}'
+    run evolution_next_stages "$chain" eevee
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "2" ]
+    [ "$(jq -r '.[0].species' <<< "$output")" = "vaporeon" ]
+    [ "$(jq -r '.[0].evolution_details[0].item.name' <<< "$output")" = "water-stone" ]
+}
+
 @test "build_pool: species seen in two tiers ends up in the most-common one" {
     # Synthetic area: 'aaa' (chance 50 -> common) whose evolution chain also
     # contains 'bbb'. Separately, 'bbb' is its own entry with chance 5 -> rare.

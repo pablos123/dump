@@ -25,6 +25,8 @@ source "$POKIDLE_REPO_ROOT/lib/db.bash"
 source "$POKIDLE_REPO_ROOT/lib/biome.bash"
 # shellcheck source=lib/encounter.bash
 source "$POKIDLE_REPO_ROOT/lib/encounter.bash"
+# shellcheck source=lib/evolution.bash
+source "$POKIDLE_REPO_ROOT/lib/evolution.bash"
 # shellcheck source=lib/notify.bash
 source "$POKIDLE_REPO_ROOT/lib/notify.bash"
 # shellcheck source=lib/showdown.bash
