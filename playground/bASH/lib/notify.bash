@@ -129,3 +129,21 @@ notify_biome_change() {
     local body="Encounters: $pool_size species, $item_count items"
     _emit "$title" "$body" "low" ""
 }
+
+notify_level() {
+    local species="$1" from="$2" to="$3" biome_label="${4:-}"
+    local sp_title title body
+    sp_title="$(_titlecase_words "$species")"
+    title="$sp_title leveled $from → $to"
+    body="$biome_label"
+    _emit "$title" "$body" "low" ""
+}
+
+notify_friendship() {
+    local species="$1" from="$2" to="$3" biome_label="${4:-}"
+    local sp_title title body
+    sp_title="$(_titlecase_words "$species")"
+    title="$sp_title friendship $from → $to"
+    body="$biome_label"
+    _emit "$title" "$body" "low" ""
+}

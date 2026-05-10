@@ -82,21 +82,38 @@ encounter_ev_split() {
     local evs=(0 0 0 0 0 0)
     local remaining="$total"
     local guard=0
-    while (( remaining > 0 )); do
+    # Allocate in chunks of 4 (one chunk = +1 effective stat point).
+    while (( remaining >= 4 )); do
         (( guard++ > 10000 )) && break
         local i=$((RANDOM % 6))
         local headroom=$((252 - evs[i]))
-        (( headroom <= 0 )) && {
+        (( headroom < 4 )) && {
             local all=1 j
             for j in "${evs[@]}"; do (( j < 252 )) && { all=0; break; }; done
             (( all )) && break
             continue
         }
-        local cap=$((headroom < remaining ? headroom : remaining))
-        local delta=$(( (RANDOM % cap) + 1 ))
+        local cap_chunks=$((headroom / 4))
+        local rem_chunks=$((remaining / 4))
+        (( cap_chunks > rem_chunks )) && cap_chunks=$rem_chunks
+        local delta_chunks=$(( (RANDOM % cap_chunks) + 1 ))
+        local delta=$((delta_chunks * 4))
         evs[i]=$((evs[i] + delta))
         remaining=$((remaining - delta))
     done
+    # 510 is not a multiple of 4: drop the 1-3 leftover on a stat with room
+    # (matches in-game behavior — last bits are wasted but the total is preserved).
+    if (( remaining > 0 )); then
+        local tries=0 i
+        while (( tries < 100 )); do
+            i=$((RANDOM % 6))
+            if (( evs[i] + remaining <= 252 )); then
+                evs[i]=$((evs[i] + remaining))
+                break
+            fi
+            (( tries++ ))
+        done
+    fi
     printf '%s' "${evs[*]}"
 }
 
@@ -293,33 +310,16 @@ encounter_walk_chain() {
     ' <<< "$chain_json"
 }
 
-# Map version-group/version name to generation 1-9. Static.
-encounter_gen_of() {
-    local v="$1"
-    case "$v" in
-        red|blue|yellow) echo 1 ;;
-        gold|silver|crystal) echo 2 ;;
-        ruby|sapphire|emerald|firered|leafgreen) echo 3 ;;
-        diamond|pearl|platinum|heartgold|soulsilver) echo 4 ;;
-        black|white|black-2|white-2) echo 5 ;;
-        x|y|omega-ruby|alpha-sapphire) echo 6 ;;
-        sun|moon|ultra-sun|ultra-moon|lets-go-pikachu|lets-go-eevee) echo 7 ;;
-        sword|shield|brilliant-diamond|shining-pearl|legends-arceus) echo 8 ;;
-        scarlet|violet) echo 9 ;;
-        *) echo 0 ;;
-    esac
-}
-
-# encounter_build_pool <areas_json_array> <gen_csv>
+# encounter_build_pool <areas_json_array>
 # Emits a JSON object {tiers:{common:[],uncommon:[],rare:[],very_rare:[]}}
 # where every entry is {species, min, max} (no pct). Entries are tier-bucketed
 # from the aggregated raw chance and chain-shifted one tier per evolution
 # stage, clamped at very_rare. On species collision across tiers, the
 # most-common tier wins.
 encounter_build_pool() {
-    local areas_json="$1" gen_csv="$2"
+    local areas_json="$1"
 
-    # 1. Aggregate raw rows from each area, optionally filtered by generation.
+    # 1. Aggregate raw rows from each area.
     local raw='[]'
     local area
     while IFS= read -r area; do
@@ -338,18 +338,6 @@ encounter_build_pool() {
         local row
         while IFS= read -r row; do
             [[ -z "$row" ]] && continue
-            if [[ -n "$gen_csv" ]]; then
-                local v g
-                v="$(jq -r '.version' <<< "$row")"
-                g="$(encounter_gen_of "$v")"
-                local match=0
-                IFS=',' read -ra wanted <<< "$gen_csv"
-                local w
-                for w in "${wanted[@]}"; do
-                    [[ "$w" == "$g" ]] && match=1 && break
-                done
-                (( match )) || continue
-            fi
             raw="$(jq -c --argjson r "$row" '. + [$r]' <<< "$raw")"
         done <<< "$rows"
     done <<< "$(jq -r '.[]' <<< "$areas_json")"
@@ -467,10 +455,9 @@ encounter_pool_save() {
     mkdir -p -- "$(dirname -- "$p")"
     local body
     body="$(jq -c -n --arg b "$biome" --arg ts "$(date -u +%FT%TZ)" \
-                  --arg gen "${POKIDLE_GEN:-}" --argjson p "$body_json" '{
+                  --argjson p "$body_json" '{
         biome: $b,
         built_at: $ts,
-        gen_filter: ($gen | if . == "" then [] else split(",") end),
         schema: 2,
         tiers: $p.tiers
     }')"
