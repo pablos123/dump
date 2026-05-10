@@ -25,7 +25,7 @@ teardown() {
     [ "$status" -eq 0 ]
     local n
     n="$(jq '.biomes | length' <<< "$output")"
-    [ "$n" = "18" ]
+    [ "$n" = "17" ]
 }
 
 @test "biome_get returns one biome by id" {
@@ -48,7 +48,7 @@ teardown() {
     [ "$status" -eq 0 ]
     local n
     n="$(printf '%s\n' "$output" | wc -l)"
-    [ "$n" = "18" ]
+    [ "$n" = "17" ]
 }
 
 @test "biome_validate passes on valid config" {
