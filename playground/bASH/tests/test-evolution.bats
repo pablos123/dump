@@ -10,14 +10,14 @@ setup() {
 
 @test "evolution_check_hard_filters: gender mismatch -> fail" {
     local enc='{"gender":"M","level":40,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
-    local evo='{"gender":2}'   # 2 = female-only per PokeAPI evolution_details.gender
+    local evo='{"gender":1}'   # 1 = female-only per PokeAPI canonical; encounter is M -> mismatch
     run evolution_check_hard_filters "$enc" "$evo"
     [ "$status" -ne 0 ]
 }
 
 @test "evolution_check_hard_filters: gender match -> pass" {
     local enc='{"gender":"F","level":40,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
-    local evo='{"gender":2}'
+    local evo='{"gender":1}'   # 1 = female-only per PokeAPI canonical; encounter is F -> match
     run evolution_check_hard_filters "$enc" "$evo"
     [ "$status" -eq 0 ]
 }

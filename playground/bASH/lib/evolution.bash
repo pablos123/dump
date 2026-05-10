@@ -38,12 +38,12 @@ evolution_next_stages() {
 }
 
 # PokeAPI evolution_details.gender code -> encounter gender label.
-#   1=Male-only, 2=Female-only, 3=Genderless. Empty for "no requirement".
+# Canonical PokeAPI: 1=female, 2=male, 3=genderless. Empty for "no requirement".
 _evolution_gender_required() {
     local code="$1"
     case "$code" in
-        1) printf 'M' ;;
-        2) printf 'F' ;;
+        1) printf 'F' ;;
+        2) printf 'M' ;;
         3) printf 'genderless' ;;
         *) printf '' ;;
     esac
