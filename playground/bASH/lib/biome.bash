@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lib/biome.bash — biome config loader, classifier, rotation.
+# lib/biome.bash — biome config loader, lookup, rotation.
 
 biome_config_path() {
     local p
@@ -32,32 +32,37 @@ biome_ids() {
     biome_load | jq -r '.biomes[].id'
 }
 
+biome_types_for() {
+    local id="$1"
+    biome_get "$id" | jq -r '.types[]'
+}
+
+# Hardcoded PokeAPI primary types. The validator asserts every entry here
+# appears in ≥1 biome's types[].
+BIOME_PRIMARY_TYPES=(
+    normal fighting flying poison ground rock bug ghost steel
+    fire water grass electric psychic ice dragon dark fairy
+)
+
 biome_validate() {
     local cfg
     cfg="$(biome_load)" || return 1
 
-    # Required top-level shape
-    if ! jq -e 'has("biomes") and has("fallback_biome")' <<< "$cfg" > /dev/null; then
-        printf 'biome_validate: missing biomes or fallback_biome\n' >&2
+    if ! jq -e 'has("biomes")' <<< "$cfg" > /dev/null; then
+        printf 'biome_validate: missing biomes array\n' >&2
         return 1
     fi
 
-    # All biome objects have required keys
     local missing
-    missing="$(jq -r '
-        .biomes[] |
-        select(
-            (has("id")|not) or (has("label")|not) or
-            (has("name_regex")|not) or (has("type_affinity")|not) or
-            (has("berry_pool")|not) or (has("item_pool")|not)
-        ) | .id // "<no-id>"
-    ' <<< "$cfg")"
+    missing="$(jq -r '[.biomes[] | select(
+        (has("id")|not) or (has("label")|not) or
+        (has("types")|not) or ((.types | type) != "array") or (.types | length == 0)
+    ) | (.id // "<no-id>")] | .[]' <<< "$cfg")"
     if [[ -n "$missing" ]]; then
-        printf 'biome_validate: biomes missing keys: %s\n' "$missing" >&2
+        printf 'biome_validate: biomes missing keys or empty types: %s\n' "$missing" >&2
         return 1
     fi
 
-    # Duplicate ids
     local dupes
     dupes="$(jq -r '.biomes | group_by(.id) | map(select(length>1) | .[0].id) | .[]' <<< "$cfg")"
     if [[ -n "$dupes" ]]; then
@@ -65,83 +70,17 @@ biome_validate() {
         return 1
     fi
 
-    # Fallback biome must exist
-    local fb
-    fb="$(jq -r '.fallback_biome' <<< "$cfg")"
-    if ! jq -e --arg fb "$fb" '.biomes[] | select(.id==$fb)' <<< "$cfg" > /dev/null; then
-        printf 'biome_validate: fallback_biome "%s" not in biomes\n' "$fb" >&2
-        return 1
-    fi
-
-    return 0
-}
-
-# Compute the union of types of every pokemon listed in an area's encounters.
-# Echoes one type-name per line.
-_biome_area_types() {
-    local area_json="$1"
-    local species
-    species="$(jq -r '.pokemon_encounters[].pokemon.name' <<< "$area_json")"
-    local s types
-    while IFS= read -r s; do
-        [[ -z "$s" ]] && continue
-        types="$(pokeapi_get "pokemon/$s" | jq -r '.types[].type.name')"
-        printf '%s\n' $types
-    done <<< "$species" | sort -u
-}
-
-# Classify a /location-area JSON to a biome id.
-# Algorithm: name_regex match = +10, count of intersecting types in type_affinity
-# adds to score. Highest scoring biome wins; on tie, first match by config order.
-biome_classify_area() {
-    local area_json="$1"
-    local cfg
-    cfg="$(biome_load)" || return 1
-    local area_name
-    area_name="$(jq -r '.name' <<< "$area_json")"
-
-    local area_types_list
-    area_types_list="$(_biome_area_types "$area_json")"
-
-    local best_id="" best_score=0
-    local i count
-    count="$(jq '.biomes | length' <<< "$cfg")"
-
-    for ((i=0; i<count; i++)); do
-        local id regex affinity
-        id="$(jq -r ".biomes[$i].id" <<< "$cfg")"
-        regex="$(jq -r ".biomes[$i].name_regex" <<< "$cfg")"
-        affinity="$(jq -r ".biomes[$i].type_affinity[]?" <<< "$cfg")"
-
-        local score=0
-        local pat="$regex"
-        local flags="-E"
-        if [[ "$pat" == *"(?i)"* ]]; then
-            pat="${pat//'(?i)'/}"
-            flags="-Ei"
-        fi
-        if [[ -n "$pat" ]] && grep $flags -q "$pat" <<< "$area_name"; then
-            score=$((score + 10))
-        fi
-        local t
-        while IFS= read -r t; do
-            [[ -z "$t" ]] && continue
-            if grep -Fxq "$t" <<< "$area_types_list"; then
-                score=$((score + 1))
-            fi
-        done <<< "$affinity"
-
-        if (( score > best_score )); then
-            best_score=$score
-            best_id="$id"
+    # Type coverage: every BIOME_PRIMARY_TYPES entry must appear in some biome.
+    local union t
+    union="$(jq -r '[.biomes[].types[]] | unique | .[]' <<< "$cfg")"
+    for t in "${BIOME_PRIMARY_TYPES[@]}"; do
+        if ! grep -Fxq "$t" <<< "$union"; then
+            printf 'biome_validate: type %s not covered by any biome\n' "$t" >&2
+            return 1
         fi
     done
 
-    if (( best_score == 0 )); then
-        jq -r '.fallback_biome' <<< "$cfg"
-    else
-        printf '%s' "$best_id"
-    fi
+    return 0
 }
 
 : "${BIOME_MIN_POOL_SIZE:=10}"

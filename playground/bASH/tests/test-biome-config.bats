@@ -104,3 +104,59 @@ teardown() {
         }
     done
 }
+
+@test "biome_validate: passes on current config" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_REPO_ROOT
+    load_lib biome
+    run biome_validate
+    [ "$status" -eq 0 ]
+}
+
+@test "biome_validate: fails when a biome has no types" {
+    local tmp
+    tmp="$(mktemp -d)"
+    cp "$REPO_ROOT/config/biomes.json" "$tmp/biomes.json"
+    jq '.biomes[0].types = []' "$tmp/biomes.json" > "$tmp/biomes.json.new"
+    mv "$tmp/biomes.json.new" "$tmp/biomes.json"
+    POKIDLE_CONFIG_DIR="$tmp" POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_CONFIG_DIR POKIDLE_REPO_ROOT
+    load_lib biome
+    run biome_validate
+    [ "$status" -ne 0 ]
+}
+
+@test "biome_validate: fails when duplicate id" {
+    local tmp
+    tmp="$(mktemp -d)"
+    jq '.biomes[1].id = .biomes[0].id' "$REPO_ROOT/config/biomes.json" > "$tmp/biomes.json"
+    POKIDLE_CONFIG_DIR="$tmp" POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_CONFIG_DIR POKIDLE_REPO_ROOT
+    load_lib biome
+    run biome_validate
+    [ "$status" -ne 0 ]
+}
+
+@test "biome_validate: fails when an 18-list type is uncovered" {
+    local tmp
+    tmp="$(mktemp -d)"
+    # Strip 'psychic' from ruins (its only home).
+    jq '(.biomes[] | select(.id=="ruins") | .types) |= map(select(. != "psychic"))' \
+        "$REPO_ROOT/config/biomes.json" > "$tmp/biomes.json"
+    POKIDLE_CONFIG_DIR="$tmp" POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_CONFIG_DIR POKIDLE_REPO_ROOT
+    load_lib biome
+    run biome_validate
+    [ "$status" -ne 0 ]
+    [[ "$output" == *psychic* ]]
+}
+
+@test "biome_types_for: returns types for a biome id" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_REPO_ROOT
+    load_lib biome
+    run biome_types_for forest
+    [ "$status" -eq 0 ]
+    [[ "$output" == *grass* ]]
+    [[ "$output" == *bug* ]]
+}
