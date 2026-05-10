@@ -188,6 +188,10 @@ pokidle_tick() {
             pokidle_tick_level "$@"
             return
             ;;
+        friendship)
+            pokidle_tick_friendship "$@"
+            return
+            ;;
     esac
 
     local dry_run=0 no_notify=0 emit_json=0
@@ -333,6 +337,48 @@ pokidle_tick_level() {
 
     if (( emit_json )); then
         jq -n --argjson l "$leveled" '{leveled: $l}'
+    fi
+}
+pokidle_tick_friendship() {
+    local dry_run=0 no_notify=0 emit_json=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)   dry_run=1; shift ;;
+            --no-notify) no_notify=1; shift ;;
+            --json)      emit_json=1; shift ;;
+            *) printf 'tick friendship: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    db_init
+    local rows
+    rows="$(db_list_current_week_encounters)"
+    local befriended='[]'
+    local n
+    n="$(jq 'length' <<< "$rows")"
+    local i
+    for (( i=0; i<n; i++ )); do
+        local r id species fr_old fr_new
+        r="$(jq -c ".[$i]" <<< "$rows")"
+        id="$(jq -r '.id' <<< "$r")"
+        species="$(jq -r '.species' <<< "$r")"
+        fr_old="$(jq -r '.friendship' <<< "$r")"
+        (( fr_old >= 255 )) && continue
+        (( RANDOM % 100 >= 50 )) && continue
+
+        fr_new=$(( fr_old + 5 ))
+        (( fr_new > 255 )) && fr_new=255
+
+        if (( dry_run == 0 )); then
+            db_update_encounter_friendship "$id" "$fr_new"
+        fi
+        befriended="$(jq -c --argjson id "$id" --arg sp "$species" \
+            --argjson from "$fr_old" --argjson to "$fr_new" \
+            '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$befriended")"
+    done
+
+    if (( emit_json )); then
+        jq -n --argjson b "$befriended" '{befriended: $b}'
     fi
 }
 pokidle_list() {
