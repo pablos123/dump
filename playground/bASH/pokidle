@@ -126,6 +126,19 @@ pokidle_daemon() {
         db_state_set last_item_tick_target "$next_item" || \
             printf 'daemon: persist last_item_tick_target failed (continuing)\n' >&2
     fi
+    local next_level next_friendship
+    next_level="$(db_state_get last_level_tick_target)"
+    next_friendship="$(db_state_get last_friendship_tick_target)"
+    if [[ -z "$next_level" || "$next_level" -le "$now" ]]; then
+        next_level="$(_pokidle_next_tick_target "$now" "${POKIDLE_LEVEL_INTERVAL:-3600}")"
+        db_state_set last_level_tick_target "$next_level" || \
+            printf 'daemon: persist last_level_tick_target failed (continuing)\n' >&2
+    fi
+    if [[ -z "$next_friendship" || "$next_friendship" -le "$now" ]]; then
+        next_friendship="$(_pokidle_next_tick_target "$now" "${POKIDLE_FRIENDSHIP_INTERVAL:-1800}")"
+        db_state_set last_friendship_tick_target "$next_friendship" || \
+            printf 'daemon: persist last_friendship_tick_target failed (continuing)\n' >&2
+    fi
 
     trap '_pokidle_shutdown $sid; exit 0' INT TERM
 
@@ -138,6 +151,10 @@ pokidle_daemon() {
             biome_started_at="$now"
             sid="$(db_open_biome_session "$biome" "$biome_started_at")"
             _pokidle_announce_biome "$biome"
+            if [[ "${POKIDLE_EVOLVE_ENABLED:-1}" == "1" ]]; then
+                pokidle_tick evolve --no-notify --json > /dev/null \
+                    || printf 'daemon: evolve tick failed (continuing)\n' >&2
+            fi
         fi
 
         if (( now >= next_pokemon )); then
@@ -152,9 +169,26 @@ pokidle_daemon() {
             db_state_set last_item_tick_target "$next_item" || \
                 printf 'daemon: persist last_item_tick_target failed (continuing)\n' >&2
         fi
+        if (( now >= next_level )); then
+            pokidle_tick level --no-notify --json > /dev/null \
+                || printf 'daemon: level tick failed (continuing)\n' >&2
+            next_level="$(_pokidle_next_tick_target "$now" "${POKIDLE_LEVEL_INTERVAL:-3600}")"
+            db_state_set last_level_tick_target "$next_level" || \
+                printf 'daemon: persist last_level_tick_target failed (continuing)\n' >&2
+        fi
+        if (( now >= next_friendship )); then
+            pokidle_tick friendship --no-notify --json > /dev/null \
+                || printf 'daemon: friendship tick failed (continuing)\n' >&2
+            next_friendship="$(_pokidle_next_tick_target "$now" "${POKIDLE_FRIENDSHIP_INTERVAL:-1800}")"
+            db_state_set last_friendship_tick_target "$next_friendship" || \
+                printf 'daemon: persist last_friendship_tick_target failed (continuing)\n' >&2
+        fi
 
         local biome_end=$((biome_started_at + ${POKIDLE_BIOME_HOURS:-3} * 3600))
-        local next_event=$(( next_pokemon < next_item ? next_pokemon : next_item ))
+        local next_event=$next_pokemon
+        (( next_item < next_event )) && next_event=$next_item
+        (( next_level < next_event )) && next_event=$next_level
+        (( next_friendship < next_event )) && next_event=$next_friendship
         (( biome_end < next_event )) && next_event="$biome_end"
         local sleep_for=$(( next_event - now ))
         (( sleep_for < 1 )) && sleep_for=1
@@ -685,6 +719,9 @@ pokidle_switch_biome() {
     fi
     local new_sid
     new_sid="$(db_open_biome_session "$biome" "$(date +%s)")"
+    if [[ "${POKIDLE_EVOLVE_ENABLED:-1}" == "1" ]]; then
+        pokidle_tick evolve --no-notify --json > /dev/null || true
+    fi
     printf 'switched to %s (session %s)\n' "$biome" "$new_sid"
 }
 
