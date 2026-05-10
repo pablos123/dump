@@ -181,6 +181,15 @@ _pokidle_shutdown() {
 pokidle_tick() {
     local kind="${1:-pokemon}"
     shift || true
+
+    # Sub-commands that manage their own flags and DB init are dispatched early.
+    case "$kind" in
+        level)
+            pokidle_tick_level "$@"
+            return
+            ;;
+    esac
+
     local dry_run=0 no_notify=0 emit_json=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -274,6 +283,57 @@ pokidle_tick() {
             return 2
             ;;
     esac
+}
+pokidle_tick_level() {
+    local dry_run=0 no_notify=0 emit_json=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)   dry_run=1; shift ;;
+            --no-notify) no_notify=1; shift ;;
+            --json)      emit_json=1; shift ;;
+            *) printf 'tick level: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    db_init
+    local rows
+    rows="$(db_list_current_week_encounters)"
+    local leveled='[]'
+    local n
+    n="$(jq 'length' <<< "$rows")"
+    local i
+    for (( i=0; i<n; i++ )); do
+        local r id species level nature
+        r="$(jq -c ".[$i]" <<< "$rows")"
+        id="$(jq -r '.id' <<< "$r")"
+        species="$(jq -r '.species' <<< "$r")"
+        level="$(jq -r '.level' <<< "$r")"
+        (( level >= 100 )) && continue
+        (( RANDOM % 100 >= 25 )) && continue
+
+        nature="$(jq -r '.nature' <<< "$r")"
+        local ivs evs new_level
+        ivs="$(jq -r '"\(.iv_hp) \(.iv_atk) \(.iv_def) \(.iv_spa) \(.iv_spd) \(.iv_spe)"' <<< "$r")"
+        evs="$(jq -r '"\(.ev_hp) \(.ev_atk) \(.ev_def) \(.ev_spa) \(.ev_spd) \(.ev_spe)"' <<< "$r")"
+        new_level=$(( level + 1 ))
+
+        local poke base_stats mods stats
+        poke="$(pokeapi_get "pokemon/$species")" || continue
+        base_stats="$(jq -c '.stats' <<< "$poke")"
+        mods="$(encounter_nature_mods "$nature")" || continue
+        stats="$(encounter_compute_all_stats "$base_stats" "$ivs" "$evs" "$new_level" "$mods")" || continue
+
+        if (( dry_run == 0 )); then
+            db_update_encounter_level_stats "$id" "$new_level" "$stats"
+        fi
+        leveled="$(jq -c --argjson id "$id" --arg sp "$species" \
+            --argjson from "$level" --argjson to "$new_level" \
+            '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$leveled")"
+    done
+
+    if (( emit_json )); then
+        jq -n --argjson l "$leveled" '{leveled: $l}'
+    fi
 }
 pokidle_list() {
     db_init
