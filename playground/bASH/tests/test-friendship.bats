@@ -16,9 +16,10 @@ teardown() { rm -rf "$POKIDLE_CONFIG_DIR"; }
 
 _seed_friendly() {
     local fr="${1:-70}"
-    local mon_ts
-    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
-              || date -v-mon -v0H -v0M -v0S +%s)"
+    local mon_ts dow
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
     local now=$((mon_ts + 86400))
     sqlite3 "$POKIDLE_DB_PATH" "
         INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', $mon_ts);

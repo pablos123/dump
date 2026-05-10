@@ -174,9 +174,11 @@ db_list_item_drops() {
 # Returns JSON array of encounter rows whose encountered_at falls within
 # the current local ISO week (Mon 00:00 — Sun 23:59:59).
 db_list_current_week_encounters() {
-    local mon_ts sun_ts
-    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
-              || date -v-mon -v0H -v0M -v0S +%s)"
+    local mon_ts sun_ts dow
+    # %u: 1=Mon..7=Sun. Compute Monday at 00:00 local.
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
     sun_ts=$((mon_ts + 7*86400 - 1))
     db_query_json "
         SELECT * FROM encounters

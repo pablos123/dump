@@ -247,5 +247,13 @@ evolution_apply() {
     mods="$(encounter_nature_mods "$nature")" || return 1
     stats="$(encounter_compute_all_stats "$base_stats" "$ivs" "$evs" "$level" "$mods")" || return 1
 
-    db_update_encounter_evolved "$enc_id" "$species" "$dex_id" "$sprite" "$stats"
+    local sprite_url="$sprite"
+    local sprite_local=""
+    if [[ -n "$sprite_url" ]]; then
+        sprite_local="${POKIDLE_CACHE_DIR:-$HOME/.cache/pokidle}/sprites/$species.png"
+        mkdir -p -- "$(dirname -- "$sprite_local")"
+        [[ -f "$sprite_local" ]] || curl -sS -o "$sprite_local" "$sprite_url" || sprite_local=""
+    fi
+
+    db_update_encounter_evolved "$enc_id" "$species" "$dex_id" "$sprite_local" "$stats"
 }

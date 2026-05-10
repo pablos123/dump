@@ -177,9 +177,11 @@ setup() {
     local path='{"species":"linoone","kind":"synthetic","evo":{"min_level":20}}'
     run evolution_apply 1 "$path"
     [ "$status" -eq 0 ]
+    # sprite_local is "" because the stub URL "linoone.png" is not a real URL;
+    # curl fails and sprite_local is cleared. Verify species/dex_id only.
     local row
-    row="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT species||','||dex_id||','||sprite_path FROM encounters WHERE id=1;")"
-    [ "$row" = "linoone,264,linoone.png" ]
+    row="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT species||','||dex_id FROM encounters WHERE id=1;")"
+    [ "$row" = "linoone,264" ]
 }
 
 @test "pokidle tick evolve --json: synthetic candidate evolves on tier-pass" {
@@ -198,9 +200,10 @@ setup() {
 }}
 EOF
 
-    local mon_ts now
-    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
-              || date -v-mon -v0H -v0M -v0S +%s)"
+    local mon_ts now dow
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
     now=$((mon_ts + 86400))
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     sqlite3 "$POKIDLE_DB_PATH" "

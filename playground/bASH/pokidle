@@ -230,7 +230,7 @@ pokidle_tick() {
             ;;
         evolve)
             pokidle_tick_evolve "$@"
-            return $?
+            return
             ;;
     esac
 
@@ -492,6 +492,16 @@ pokidle_tick_evolve() {
 
         if (( dry_run == 0 )); then
             evolution_apply "$enc_id" "$pick" || continue
+        fi
+        if (( no_notify == 0 )); then
+            local sprite_meta biome_label notify_obj
+            sprite_meta="$(sqlite3 "$POKIDLE_DB_PATH" \
+                "SELECT sprite_path FROM encounters WHERE id=$enc_id;")"
+            biome_label="$(biome_get "$biome" | jq -r '.label')"
+            notify_obj="$(jq -n --arg from "$species" --arg to "$new_species" \
+                --arg label "$biome_label" --arg sp "$sprite_meta" \
+                '{from:$from, to:$to, biome_label:$label, sprite_path:$sp}')"
+            notify_evolution "$notify_obj"
         fi
         evolved="$(jq -c \
             --argjson id "$enc_id" --arg from "$species" --arg to "$new_species" --arg kind "$kind" \
