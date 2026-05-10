@@ -669,16 +669,13 @@ pokidle_clean() {
         esac
     done
     if (( ! yes )); then
-        printf 'This will remove %s/pools and %s. Type yes: ' \
-            "$POKIDLE_CACHE_DIR" "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}"
+        printf 'This will remove %s/pools and %s/biome-areas. Type yes: ' \
+            "$POKIDLE_CACHE_DIR" "$POKIDLE_CACHE_DIR"
         local ans
         read -r ans
         [[ "$ans" == "yes" ]] || { printf 'aborted\n'; return 1; }
     fi
     rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
-    if [[ -d "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}" ]]; then
-        rm -rf -- "${POKEAPI_CACHE_DIR:-$HOME/.cache/pokeapi}"
-    fi
     printf 'cleaned\n'
 }
 
