@@ -194,6 +194,10 @@ pokidle_tick() {
             pokidle_tick_friendship "$@"
             return
             ;;
+        evolve)
+            pokidle_tick_evolve "$@"
+            return $?
+            ;;
     esac
 
     local dry_run=0 no_notify=0 emit_json=0
@@ -381,6 +385,87 @@ pokidle_tick_friendship() {
 
     if (( emit_json )); then
         jq -n --argjson b "$befriended" '{befriended: $b}'
+    fi
+}
+pokidle_tick_evolve() {
+    local dry_run=0 no_notify=0 emit_json=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)   dry_run=1; shift ;;
+            --no-notify) no_notify=1; shift ;;
+            --json)      emit_json=1; shift ;;
+            *) printf 'tick evolve: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    db_init
+
+    local active sid biome
+    active="$(db_active_biome_session)"
+    [[ -n "$active" ]] || { printf 'tick evolve: no active biome session\n' >&2; return 1; }
+    IFS=$'\t' read -r sid biome _ <<< "$active"
+
+    local rows
+    rows="$(db_list_current_week_encounters)"
+    local evolved='[]'
+    local n
+    n="$(jq 'length' <<< "$rows")"
+    local i
+    for (( i=0; i<n; i++ )); do
+        local r enc_id species enc_obj
+        r="$(jq -c ".[$i]" <<< "$rows")"
+        enc_id="$(jq -r '.id' <<< "$r")"
+        species="$(jq -r '.species' <<< "$r")"
+
+        # Build the encounter object the evolution checker expects.
+        enc_obj="$(jq -c '{
+            gender, level, friendship,
+            stats: [.stat_hp, .stat_atk, .stat_def, .stat_spa, .stat_spd, .stat_spe],
+            moves: (.moves_json | fromjson)
+        }' <<< "$r")"
+
+        local spec chain_url chain_id chain stages
+        spec="$(pokeapi_get "pokemon-species/$species" 2>/dev/null)" || continue
+        chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
+        [[ -z "$chain_url" || "$chain_url" == "null" ]] && continue
+        chain_id="$(basename -- "${chain_url%/}")"
+        chain="$(pokeapi_get "evolution-chain/$chain_id" 2>/dev/null)" || continue
+        stages="$(evolution_next_stages "$chain" "$species")"
+        [[ "$(jq 'length' <<< "$stages")" == "0" ]] && continue
+
+        local viable
+        viable="$(evolution_enumerate_viable_paths "$enc_obj" "$stages")"
+        local v_n
+        v_n="$(jq 'length' <<< "$viable")"
+        (( v_n > 0 )) || continue
+
+        local tier chance
+        tier="$(evolution_tier_lookup "$biome" "$species")"
+        case "$tier" in
+            common)    chance=25 ;;
+            uncommon)  chance=15 ;;
+            rare)      chance=8 ;;
+            very_rare) chance=3 ;;
+            *)         chance=25 ;;
+        esac
+        (( RANDOM % 100 < chance )) || continue
+
+        local idx pick new_species kind
+        idx=$(( RANDOM % v_n ))
+        pick="$(jq -c ".[$idx]" <<< "$viable")"
+        new_species="$(jq -r '.species' <<< "$pick")"
+        kind="$(jq -r '.kind' <<< "$pick")"
+
+        if (( dry_run == 0 )); then
+            evolution_apply "$enc_id" "$pick" || continue
+        fi
+        evolved="$(jq -c \
+            --argjson id "$enc_id" --arg from "$species" --arg to "$new_species" --arg kind "$kind" \
+            '. + [{id:$id, from:$from, to:$to, kind:$kind}]' <<< "$evolved")"
+    done
+
+    if (( emit_json )); then
+        jq -n --argjson e "$evolved" '{evolved: $e}'
     fi
 }
 pokidle_list() {

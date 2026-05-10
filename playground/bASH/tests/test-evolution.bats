@@ -182,6 +182,77 @@ setup() {
     [ "$row" = "linoone,264,linoone.png" ]
 }
 
+@test "pokidle tick evolve --json: synthetic candidate evolves on tier-pass" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/pcache.$$"
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/pcfg.$$"
+    mkdir -p "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CONFIG_DIR"
+    cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
+
+    cat > "$POKIDLE_CACHE_DIR/pools/plain.json" <<'EOF'
+{"biome":"plain","schema":2,"tiers":{
+  "common":[{"species":"zigzagoon","min":3,"max":5}],
+  "uncommon":[],"rare":[],"very_rare":[]
+}}
+EOF
+
+    local mon_ts now
+    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-mon -v0H -v0M -v0S +%s)"
+    now=$((mon_ts + 86400))
+    sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', $mon_ts);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
+            iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
+            ev_hp, ev_atk, ev_def, ev_spa, ev_spd, ev_spe)
+            VALUES (1, $now, 'zigzagoon', 263, 20, 'hardy', 'pickup', 0, 'M', 0, '[]',
+                70, 10,10,10,10,10,10, 0,0,0,0,0,0);"
+
+    POKEAPI_CACHE_DIR="$BATS_TMPDIR/papi.$$"
+    export POKEAPI_CACHE_DIR
+    mkdir -p "$POKEAPI_CACHE_DIR/pokemon-species" "$POKEAPI_CACHE_DIR/pokemon"
+    cat > "$POKEAPI_CACHE_DIR/pokemon-species/zigzagoon.json" <<'EOF'
+{"evolution_chain":{"url":"https://x/evolution-chain/64/"},"base_happiness":70}
+EOF
+    mkdir -p "$POKEAPI_CACHE_DIR/evolution-chain"
+    cat > "$POKEAPI_CACHE_DIR/evolution-chain/64.json" <<'EOF'
+{"chain":{"species":{"name":"zigzagoon"},"evolution_details":[],
+  "evolves_to":[{"species":{"name":"linoone"},"evolution_details":[
+    {"min_level":20,"trigger":{"name":"level-up"}}],"evolves_to":[]}]}}
+EOF
+    cat > "$POKEAPI_CACHE_DIR/pokemon/linoone.json" <<'EOF'
+{"id":264,"sprites":{"front_default":"lin.png","front_shiny":""},
+  "stats":[
+    {"base_stat":78,"stat":{"name":"hp"}},
+    {"base_stat":70,"stat":{"name":"attack"}},
+    {"base_stat":61,"stat":{"name":"defense"}},
+    {"base_stat":50,"stat":{"name":"special-attack"}},
+    {"base_stat":61,"stat":{"name":"special-defense"}},
+    {"base_stat":100,"stat":{"name":"speed"}}]}
+EOF
+    mkdir -p "$POKEAPI_CACHE_DIR/nature"
+    cat > "$POKEAPI_CACHE_DIR/nature/hardy.json" <<'EOF'
+{"increased_stat":null,"decreased_stat":null}
+EOF
+
+    local i hit=0 out
+    for i in {1..50}; do
+        out="$("$REPO_ROOT/pokidle" tick evolve --dry-run --no-notify --json 2>/dev/null)"
+        local n="$(jq '.evolved | length' <<< "$out")"
+        if (( n > 0 )); then
+            hit=1
+            [ "$(jq -r '.evolved[0].from' <<< "$out")" = "zigzagoon" ]
+            [ "$(jq -r '.evolved[0].to'   <<< "$out")" = "linoone" ]
+            break
+        fi
+    done
+    [ "$hit" = "1" ]
+}
+
 @test "evolution_apply: item path consumes one item_drops row" {
     POKIDLE_DB_PATH="$(make_tmp_db)"
     POKIDLE_REPO_ROOT="$REPO_ROOT"
