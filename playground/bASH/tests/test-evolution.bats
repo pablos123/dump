@@ -87,3 +87,55 @@ setup() {
     [ "$(evolution_path_item_name '{"held_item":{"name":"kings-rock"}}')" = "kings-rock" ]
     [ "$(evolution_path_item_name '{"min_level":16}')" = "" ]
 }
+
+@test "evolution_enumerate_viable_paths: synthetic only when no item" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    local enc='{"gender":"M","level":20,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
+    local stages='[{"species":"linoone","evolution_details":[{"min_level":20,"trigger":{"name":"level-up"}}]}]'
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "1" ]
+    [ "$(jq -r '.[0].species' <<< "$output")" = "linoone" ]
+    [ "$(jq -r '.[0].kind' <<< "$output")" = "synthetic" ]
+}
+
+@test "evolution_enumerate_viable_paths: item path requires item in DB" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', 1700000000);"
+    local enc='{"gender":"M","level":20,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
+    local stages='[{"species":"vaporeon","evolution_details":[
+        {"item":{"name":"water-stone"},"trigger":{"name":"use-item"}}]}]'
+    # No item in DB → no viable path.
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$(jq 'length' <<< "$output")" = "0" ]
+
+    # Add item.
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO item_drops(session_id, encountered_at, item) VALUES (1, 1, 'water-stone');"
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$(jq 'length' <<< "$output")" = "1" ]
+    [ "$(jq -r '.[0].kind' <<< "$output")" = "item" ]
+    [ "$(jq -r '.[0].item' <<< "$output")" = "water-stone" ]
+}
+
+@test "evolution_enumerate_viable_paths: hard filter blocks evo" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+    # Female-only path: encounter is M → blocked. (PokeAPI canonical: 1=female)
+    local enc='{"gender":"M","level":40,"friendship":70,"stats":[20,30,30,20,20,20],"moves":[]}'
+    local stages='[{"species":"gardevoir","evolution_details":[{"min_level":30,"gender":1}]}]'
+    run evolution_enumerate_viable_paths "$enc" "$stages"
+    [ "$(jq 'length' <<< "$output")" = "0" ]
+}

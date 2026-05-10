@@ -153,3 +153,50 @@ evolution_path_item_name() {
     local evo="$1"
     jq -r '.item.name // .held_item.name // empty' <<< "$evo"
 }
+
+# Count item_drops rows for a given item name. Wraps a sqlite query.
+_evolution_count_item_drops() {
+    local item="$1"
+    db_query "SELECT COUNT(*) FROM item_drops WHERE item='${item//\'/\'\'}';"
+}
+
+# evolution_enumerate_viable_paths <encounter_json> <next_stages_json>
+# Emits JSON array of viable paths: {species, kind, item?, evo}.
+evolution_enumerate_viable_paths() {
+    local enc="$1" stages="$2"
+    if ! command -v db_query > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/db.bash"
+    fi
+    local out='[]'
+    local n
+    n="$(jq 'length' <<< "$stages")"
+    local i
+    for (( i=0; i<n; i++ )); do
+        local stage
+        stage="$(jq -c ".[$i]" <<< "$stages")"
+        local species
+        species="$(jq -r '.species' <<< "$stage")"
+        local m j
+        m="$(jq '.evolution_details | length' <<< "$stage")"
+        for (( j=0; j<m; j++ )); do
+            local evo
+            evo="$(jq -c ".evolution_details[$j]" <<< "$stage")"
+            evolution_check_hard_filters "$enc" "$evo" || continue
+            local kind item
+            kind="$(evolution_path_kind "$evo")"
+            if [[ "$kind" == "item" ]]; then
+                item="$(evolution_path_item_name "$evo")"
+                local cnt
+                cnt="$(_evolution_count_item_drops "$item")"
+                (( cnt > 0 )) || continue
+                out="$(jq -c --arg sp "$species" --arg item "$item" --argjson e "$evo" \
+                    '. + [{species:$sp, kind:"item", item:$item, evo:$e}]' <<< "$out")"
+            else
+                out="$(jq -c --arg sp "$species" --argjson e "$evo" \
+                    '. + [{species:$sp, kind:"synthetic", evo:$e}]' <<< "$out")"
+            fi
+        done
+    done
+    printf '%s' "$out"
+}
