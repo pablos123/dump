@@ -53,7 +53,7 @@ Commands:
   rebuild-pool [biome]    Force pool rebuild (one or all)
   rebuild-biomes          Re-classify all /location-area
   switch-biome <biome>    Close active session, open new session in <biome>
-  clean [--yes]           Purge http cache + pools
+  clean [--yes]           Purge pools + biome-areas (http cache untouched)
   setup [--enable]        Install user systemd unit + config dirs
   uninstall               Disable + remove unit (DB/cache untouched)
   status                  systemctl status + last tick + current biome
