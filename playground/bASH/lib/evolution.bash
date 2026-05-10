@@ -200,3 +200,52 @@ evolution_enumerate_viable_paths() {
     done
     printf '%s' "$out"
 }
+
+# evolution_apply <encounter_id> <path_json>
+# Mutates the encounter row to the evolved species. Consumes one item_drops
+# row if path.kind == "item".
+evolution_apply() {
+    local enc_id="$1" path="$2"
+    local kind species item
+    kind="$(jq -r '.kind' <<< "$path")"
+    species="$(jq -r '.species' <<< "$path")"
+
+    if ! command -v db_query > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/db.bash"
+    fi
+    if ! command -v encounter_nature_mods > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/encounter.bash"
+    fi
+
+    if [[ "$kind" == "item" ]]; then
+        item="$(jq -r '.item' <<< "$path")"
+        db_delete_one_item_drop "$item" > /dev/null
+    fi
+
+    # Re-fetch the encounter row to compose stat inputs.
+    local enc_row
+    enc_row="$(db_query_json "SELECT * FROM encounters WHERE id=$enc_id;" | jq -c '.[0]')"
+    local nature level ivs evs
+    nature="$(jq -r '.nature' <<< "$enc_row")"
+    level="$(jq -r '.level' <<< "$enc_row")"
+    ivs="$(jq -r '"\(.iv_hp) \(.iv_atk) \(.iv_def) \(.iv_spa) \(.iv_spd) \(.iv_spe)"' <<< "$enc_row")"
+    evs="$(jq -r '"\(.ev_hp) \(.ev_atk) \(.ev_def) \(.ev_spa) \(.ev_spd) \(.ev_spe)"' <<< "$enc_row")"
+    local shiny
+    shiny="$(jq -r '.shiny' <<< "$enc_row")"
+
+    local poke base_stats sprite mods stats dex_id
+    poke="$(pokeapi_get "pokemon/$species")" || return 1
+    dex_id="$(jq -r '.id' <<< "$poke")"
+    if [[ "$shiny" == "1" ]]; then
+        sprite="$(jq -r '.sprites.front_shiny // .sprites.front_default // ""' <<< "$poke")"
+    else
+        sprite="$(jq -r '.sprites.front_default // ""' <<< "$poke")"
+    fi
+    base_stats="$(jq -c '.stats' <<< "$poke")"
+    mods="$(encounter_nature_mods "$nature")" || return 1
+    stats="$(encounter_compute_all_stats "$base_stats" "$ivs" "$evs" "$level" "$mods")" || return 1
+
+    db_update_encounter_evolved "$enc_id" "$species" "$dex_id" "$sprite" "$stats"
+}

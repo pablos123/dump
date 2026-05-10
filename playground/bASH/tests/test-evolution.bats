@@ -139,3 +139,89 @@ setup() {
     run evolution_enumerate_viable_paths "$enc" "$stages"
     [ "$(jq 'length' <<< "$output")" = "0" ]
 }
+
+@test "evolution_apply: synthetic path updates encounter species/dex/sprite/stats" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    load_lib encounter
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
+            iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
+            ev_hp, ev_atk, ev_def, ev_spa, ev_spd, ev_spe)
+            VALUES (1, 1700000000, 'zigzagoon', 263, 20, 'hardy', 'pickup', 0, 'M', 0, '[]',
+                70, 10,10,10,10,10,10, 0,0,0,0,0,0);"
+
+    pokeapi_get() {
+        case "$1" in
+            pokemon/linoone)
+                printf '%s' '{"id":264,"sprites":{"front_default":"linoone.png","front_shiny":""},
+                  "stats":[
+                    {"base_stat":78,"stat":{"name":"hp"}},
+                    {"base_stat":70,"stat":{"name":"attack"}},
+                    {"base_stat":61,"stat":{"name":"defense"}},
+                    {"base_stat":50,"stat":{"name":"special-attack"}},
+                    {"base_stat":61,"stat":{"name":"special-defense"}},
+                    {"base_stat":100,"stat":{"name":"speed"}}]}'
+                ;;
+            nature/hardy) printf '{"increased_stat":null,"decreased_stat":null}' ;;
+            *) return 1 ;;
+        esac
+    }
+    export -f pokeapi_get
+
+    local path='{"species":"linoone","kind":"synthetic","evo":{"min_level":20}}'
+    run evolution_apply 1 "$path"
+    [ "$status" -eq 0 ]
+    local row
+    row="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT species||','||dex_id||','||sprite_path FROM encounters WHERE id=1;")"
+    [ "$row" = "linoone,264,linoone.png" ]
+}
+
+@test "evolution_apply: item path consumes one item_drops row" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    load_lib encounter
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', 1700000000);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
+            iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
+            ev_hp, ev_atk, ev_def, ev_spa, ev_spd, ev_spe)
+            VALUES (1, 1700000000, 'eevee', 133, 20, 'hardy', 'run-away', 0, 'M', 0, '[]',
+                70, 10,10,10,10,10,10, 0,0,0,0,0,0);
+        INSERT INTO item_drops(session_id, encountered_at, item) VALUES
+            (1, 1, 'water-stone'),
+            (1, 2, 'water-stone');"
+
+    pokeapi_get() {
+        case "$1" in
+            pokemon/vaporeon)
+                printf '%s' '{"id":134,"sprites":{"front_default":"vap.png","front_shiny":""},
+                  "stats":[
+                    {"base_stat":130,"stat":{"name":"hp"}},
+                    {"base_stat":65,"stat":{"name":"attack"}},
+                    {"base_stat":60,"stat":{"name":"defense"}},
+                    {"base_stat":110,"stat":{"name":"special-attack"}},
+                    {"base_stat":95,"stat":{"name":"special-defense"}},
+                    {"base_stat":65,"stat":{"name":"speed"}}]}'
+                ;;
+            nature/hardy) printf '{"increased_stat":null,"decreased_stat":null}' ;;
+            *) return 1 ;;
+        esac
+    }
+    export -f pokeapi_get
+
+    local path='{"species":"vaporeon","kind":"item","item":"water-stone","evo":{}}'
+    evolution_apply 1 "$path"
+    local n
+    n="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM item_drops WHERE item='water-stone';")"
+    [ "$n" = "1" ]
+}
