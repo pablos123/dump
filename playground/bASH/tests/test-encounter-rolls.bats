@@ -80,6 +80,43 @@ setup() {
     [ "$output" = "0 0 0 0 0 0" ]
 }
 
+@test "encounter_ev_split: deltas multiples of 4 (at most one stat carries the total%4 leftover)" {
+    local i
+    for i in {1..50}; do
+        local want=$((RANDOM % 511))
+        local rem=$((want % 4))
+        local out
+        out="$(encounter_ev_split "$want")"
+        local arr=($out)
+        local nonmult4=0 v
+        for v in "${arr[@]}"; do
+            (( v % 4 != 0 )) && nonmult4=$((nonmult4 + 1))
+        done
+        if (( rem == 0 )); then
+            [ "$nonmult4" -eq 0 ]
+        else
+            [ "$nonmult4" -le 1 ]
+        fi
+    done
+}
+
+@test "encounter_ev_split(510): total preserved, chunks-of-4 invariant holds" {
+    local i
+    for i in {1..20}; do
+        local out
+        out="$(encounter_ev_split 510)"
+        local arr=($out)
+        local total=0 nonmult4=0 v
+        for v in "${arr[@]}"; do
+            [ "$v" -le 252 ]
+            total=$((total + v))
+            (( v % 4 != 0 )) && nonmult4=$((nonmult4 + 1))
+        done
+        [ "$total" -eq 510 ]
+        [ "$nonmult4" -le 1 ]
+    done
+}
+
 @test "encounter_roll_level: uniform within [min,max] inclusive" {
     local i out
     for i in {1..30}; do

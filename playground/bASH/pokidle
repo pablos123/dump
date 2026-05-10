@@ -59,7 +59,9 @@ Commands:
   status                  systemctl status + last tick + current biome
   help, -h, --help        Show this help
 
-See also: docs/superpowers/specs/2026-05-02-pokidle-design.md
+See also:
+  docs/superpowers/specs/2026-05-02-pokidle-design.md
+  docs/notifications.md  (event list + POKIDLE_NOTIFY_* env vars)
 EOF
 }
 
@@ -174,14 +176,14 @@ pokidle_daemon() {
                 printf 'daemon: persist last_item_tick_target failed (continuing)\n' >&2
         fi
         if (( now >= next_level )); then
-            pokidle_tick level --no-dry-run --no-notify --json > /dev/null \
+            pokidle_tick level --no-dry-run --json > /dev/null \
                 || printf 'daemon: level tick failed (continuing)\n' >&2
             next_level="$(_pokidle_next_tick_target "$now" "${POKIDLE_LEVEL_INTERVAL:-3600}")"
             db_state_set last_level_tick_target "$next_level" || \
                 printf 'daemon: persist last_level_tick_target failed (continuing)\n' >&2
         fi
         if (( now >= next_friendship )); then
-            pokidle_tick friendship --no-dry-run --no-notify --json > /dev/null \
+            pokidle_tick friendship --no-dry-run --json > /dev/null \
                 || printf 'daemon: friendship tick failed (continuing)\n' >&2
             next_friendship="$(_pokidle_next_tick_target "$now" "${POKIDLE_FRIENDSHIP_INTERVAL:-1800}")"
             db_state_set last_friendship_tick_target "$next_friendship" || \
@@ -189,7 +191,7 @@ pokidle_daemon() {
         fi
         if (( now >= next_evolve )); then
             if [[ "${POKIDLE_EVOLVE_ENABLED:-1}" == "1" ]]; then
-                pokidle_tick evolve --no-dry-run --no-notify --json > /dev/null \
+                pokidle_tick evolve --no-dry-run --json > /dev/null \
                     || printf 'daemon: evolve tick failed (continuing)\n' >&2
             fi
             next_evolve="$(_pokidle_next_tick_target "$now" "${POKIDLE_EVOLVE_INTERVAL:-10800}")"
@@ -212,6 +214,7 @@ pokidle_daemon() {
 
 _pokidle_announce_biome() {
     local biome="$1"
+    [[ "${POKIDLE_NOTIFY_BIOME:-1}" == "1" ]] || return 0
     local label pool_size item_size
     label="$(biome_get "$biome" | jq -r '.label')"
     if [[ -f "$(encounter_pool_path "$biome")" ]]; then
@@ -305,7 +308,7 @@ pokidle_tick() {
                 ' <<< "$enc")"
                 db_insert_encounter "$enc_for_db"
             fi
-            if (( no_notify == 0 )); then
+            if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_POKEMON:-1}" == "1" ]]; then
                 notify_pokemon "$enc_with_meta"
             fi
             if (( emit_json )); then
@@ -332,7 +335,7 @@ pokidle_tick() {
             if (( dry_run == 0 )); then
                 db_insert_item_drop "$sid" "$(date +%s)" "$item_name" "$sprite_path"
             fi
-            if (( no_notify == 0 )); then
+            if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_ITEM:-1}" == "1" ]]; then
                 notify_item "$item_with_meta"
             fi
             if (( emit_json )); then
@@ -362,6 +365,16 @@ pokidle_tick_level() {
     db_init
     local rows
     rows="$(db_list_current_week_encounters)"
+    local notify_on=0 biome_label=""
+    if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_LEVEL:-0}" == "1" ]]; then
+        notify_on=1
+        local _active _sid _biome
+        _active="$(db_active_biome_session)"
+        if [[ -n "$_active" ]]; then
+            IFS=$'\t' read -r _sid _biome _ <<< "$_active"
+            biome_label="$(biome_get "$_biome" | jq -r '.label')"
+        fi
+    fi
     local leveled='[]'
     local n
     n="$(jq 'length' <<< "$rows")"
@@ -390,6 +403,7 @@ pokidle_tick_level() {
         if (( dry_run == 0 )); then
             db_update_encounter_level_stats "$id" "$new_level" "$stats"
         fi
+        (( notify_on )) && notify_level "$species" "$level" "$new_level" "$biome_label"
         leveled="$(jq -c --argjson id "$id" --arg sp "$species" \
             --argjson from "$level" --argjson to "$new_level" \
             '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$leveled")"
@@ -422,6 +436,16 @@ pokidle_tick_friendship() {
     db_init
     local rows
     rows="$(db_list_current_week_encounters)"
+    local notify_on=0 biome_label=""
+    if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_FRIENDSHIP:-0}" == "1" ]]; then
+        notify_on=1
+        local _active _sid _biome
+        _active="$(db_active_biome_session)"
+        if [[ -n "$_active" ]]; then
+            IFS=$'\t' read -r _sid _biome _ <<< "$_active"
+            biome_label="$(biome_get "$_biome" | jq -r '.label')"
+        fi
+    fi
     local befriended='[]'
     local n
     n="$(jq 'length' <<< "$rows")"
@@ -441,6 +465,7 @@ pokidle_tick_friendship() {
         if (( dry_run == 0 )); then
             db_update_encounter_friendship "$id" "$fr_new"
         fi
+        (( notify_on )) && notify_friendship "$species" "$fr_old" "$fr_new" "$biome_label"
         befriended="$(jq -c --argjson id "$id" --arg sp "$species" \
             --argjson from "$fr_old" --argjson to "$fr_new" \
             '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$befriended")"
@@ -531,7 +556,7 @@ pokidle_tick_evolve() {
         if (( dry_run == 0 )); then
             evolution_apply "$enc_id" "$pick" || continue
         fi
-        if (( no_notify == 0 )); then
+        if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_EVOLVE:-1}" == "1" ]]; then
             local sprite_meta biome_label notify_obj
             sprite_meta="$(sqlite3 "$POKIDLE_DB_PATH" \
                 "SELECT sprite_path FROM encounters WHERE id=$enc_id;")"
@@ -741,7 +766,7 @@ pokidle_rebuild_pool() {
         fi
         local areas pool
         areas="$(cat "$areas_path")"
-        pool="$(encounter_build_pool "$areas" "${POKIDLE_GEN:-}")"
+        pool="$(encounter_build_pool "$areas")"
         encounter_pool_save "$b" "$pool"
         local c u r v
         c="$(jq '.tiers.common    | length' <<< "$pool")"
