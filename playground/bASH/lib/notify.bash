@@ -105,6 +105,24 @@ notify_item() {
     _emit "$title" "$body" "low" "$icon"
 }
 
+notify_evolution() {
+    local evo_json="$1"
+    local from to biome_label icon
+    from="$(jq -r '.from' <<< "$evo_json")"
+    to="$(jq -r '.to' <<< "$evo_json")"
+    biome_label="$(jq -r '.biome_label // ""' <<< "$evo_json")"
+    icon="$(jq -r '.sprite_path // ""' <<< "$evo_json")"
+
+    local from_t to_t title body
+    from_t="$(_titlecase_words "$from")"
+    to_t="$(_titlecase_words "$to")"
+    title="$from_t evolved into $to_t"
+    body="$biome_label"
+
+    _emit "$title" "$body" "normal" "$icon"
+    _play_sound encounter
+}
+
 notify_biome_change() {
     local label="$1" pool_size="$2" item_count="$3"
     local title="Biome changed → $label"

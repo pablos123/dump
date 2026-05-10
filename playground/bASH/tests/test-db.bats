@@ -304,11 +304,12 @@ teardown() {
     load_lib db
     db_init
 
-    # Compute Monday 00:00 local of this week.
-    local mon_ts now
+    # Compute Monday 00:00 local of this week using %u-based offset.
+    local mon_ts now dow
     now="$(date +%s)"
-    mon_ts="$(date -d "$(date -d 'this monday' +%F) 00:00:00" +%s 2>/dev/null \
-              || date -v-mon -v0H -v0M -v0S +%s)"
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
     local last_week=$((mon_ts - 7*86400))
     local this_week=$((mon_ts + 3*86400))
 
@@ -414,6 +415,31 @@ teardown() {
     run db_delete_one_item_drop never-stone
     [ "$status" -eq 0 ]
     [ "$output" = "0" ]
+}
+
+@test "db_list_current_week_encounters Sunday edge case: today's row included" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    load_lib db
+    db_init
+
+    # Compute current Monday using the fixed formula.
+    local dow mon_ts today
+    dow="$(date +%u)"
+    mon_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s 2>/dev/null \
+              || date -v-$(( dow - 1 ))d -v0H -v0M -v0S +%s)"
+    today="$(date +%s)"
+
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $mon_ts);
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
+            nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship)
+            VALUES (1, $today, 'pidgey', 16, 5, 'hardy', 'keen-eye', 0, 'M', 0, '[]', 70);"
+    run db_list_current_week_encounters
+    [ "$status" -eq 0 ]
+    [ "$(jq 'length' <<< "$output")" = "1" ]
+    [ "$(jq -r '.[0].species' <<< "$output")" = "pidgey" ]
 }
 
 @test "db_init adds friendship column to legacy DB without recreate" {
