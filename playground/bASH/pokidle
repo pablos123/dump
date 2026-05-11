@@ -52,7 +52,7 @@ Commands:
   current                 Show current biome + counts
   rebuild-pool [biome]    Force pool rebuild (one or all)
   switch-biome <biome>    Close active session, open new session in <biome>
-  clean [--yes]           Purge pools + biome-areas (http cache untouched)
+  clean [--yes]           Purge pool cache + legacy biome-areas dir
   setup [--enable]        Install user systemd unit + config dirs
   uninstall               Disable + remove unit (DB/cache untouched)
   status                  systemctl status + last tick + current biome
@@ -726,22 +726,15 @@ pokidle_current() {
 }
 
 pokidle_clean() {
-    local yes=0
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --yes|-y) yes=1; shift ;;
-            *) shift ;;
-        esac
-    done
-    if (( ! yes )); then
-        printf 'This will remove %s/pools and %s/biome-areas. Type yes: ' \
-            "$POKIDLE_CACHE_DIR" "$POKIDLE_CACHE_DIR"
-        local ans
-        read -r ans
-        [[ "$ans" == "yes" ]] || { printf 'aborted\n'; return 1; }
+    local force=0
+    [[ "${1-}" == "--yes" ]] && force=1
+    if (( ! force )); then
+        printf 'Wipe %s/{pools,biome-areas}? [y/N] ' "$POKIDLE_CACHE_DIR"
+        local ans; read -r ans
+        [[ "$ans" =~ ^[Yy]$ ]] || { printf 'aborted\n'; return 0; }
     fi
     rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
-    printf 'cleaned\n'
+    printf 'cleaned: pools/ biome-areas/\n'
 }
 
 pokidle_rebuild_pool() {

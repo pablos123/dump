@@ -43,6 +43,21 @@ teardown() {
     [ ! -f "$POKIDLE_CACHE_DIR/pools/cave.json" ]
 }
 
+@test "clean: removes biome-areas directory (legacy, no longer used)" {
+    local tmpcache
+    tmpcache="$(mktemp -d)"
+    mkdir -p "$tmpcache/pools" "$tmpcache/biome-areas"
+    : > "$tmpcache/pools/forest.json"
+    : > "$tmpcache/biome-areas/forest.json"
+    POKIDLE_CACHE_DIR="$tmpcache"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_CACHE_DIR POKIDLE_REPO_ROOT
+    run "$REPO_ROOT/pokidle" clean --yes
+    [ "$status" -eq 0 ]
+    [ ! -d "$tmpcache/pools" ]
+    [ ! -d "$tmpcache/biome-areas" ]
+}
+
 # Helper for tick tests: seed POKEAPI_CACHE_DIR with proper layout
 # (cache_path = $dir/$endpoint.json, slashes preserved as subdirs).
 _seed_pokeapi_cache() {
