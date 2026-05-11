@@ -51,7 +51,6 @@ Commands:
   stats                   Aggregates: totals, shinies, by biome, top species
   current                 Show current biome + counts
   rebuild-pool [biome]    Force pool rebuild (one or all)
-  rebuild-biomes          Re-classify all /location-area
   switch-biome <biome>    Close active session, open new session in <biome>
   clean [--yes]           Purge pools + biome-areas (http cache untouched)
   setup [--enable]        Install user systemd unit + config dirs
@@ -800,35 +799,6 @@ pokidle_switch_biome() {
     printf 'switched to %s (session %s)\n' "$biome" "$new_sid"
 }
 
-pokidle_rebuild_biomes() {
-    mkdir -p -- "$POKIDLE_CACHE_DIR/biome-areas"
-    local list
-    list="$(pokeapi_get "location-area?limit=1500")"
-    local areas_by_biome
-    areas_by_biome="$(jq -n '{}')"
-
-    local name
-    while IFS= read -r name; do
-        [[ -z "$name" ]] && continue
-        local area
-        area="$(pokeapi_get "location-area/$name")" || continue
-        local biome
-        biome="$(biome_classify_area "$area")"
-        areas_by_biome="$(jq --arg b "$biome" --arg a "$name" '
-            .[$b] = ((.[$b] // []) + [$a])
-        ' <<< "$areas_by_biome")"
-        printf '%s -> %s\n' "$name" "$biome"
-    done < <(jq -r '.results[].name' <<< "$list")
-
-    local b
-    while IFS= read -r b; do
-        [[ -z "$b" ]] && continue
-        local arr
-        arr="$(jq -c --arg b "$b" '.[$b] // []' <<< "$areas_by_biome")"
-        printf '%s' "$arr" > "$POKIDLE_CACHE_DIR/biome-areas/$b.json"
-    done < <(biome_ids)
-    printf 'rebuilt biome-area assignments\n'
-}
 pokidle_setup() {
     local enable=0 force=0
     while [[ $# -gt 0 ]]; do
@@ -917,7 +887,6 @@ if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
         stats)          pokidle_stats "$@" ;;
         current)        pokidle_current "$@" ;;
         rebuild-pool)   pokidle_rebuild_pool "$@" ;;
-        rebuild-biomes) pokidle_rebuild_biomes "$@" ;;
         switch-biome)   pokidle_switch_biome "$@" ;;
         clean)          pokidle_clean "$@" ;;
         setup)          pokidle_setup "$@" ;;
