@@ -22,6 +22,17 @@ encounter_tier_for_pct() {
     printf 'very_rare'
 }
 
+# capture_rate: PokeAPI value 0..255. Higher = easier to catch = more common.
+# Thresholds: 150/75/25 bucket into common/uncommon/rare/very_rare.
+encounter_tier_for_capture_rate() {
+    local cr="$1"
+    if   (( cr >= 150 )); then printf 'common'
+    elif (( cr >= 75  )); then printf 'uncommon'
+    elif (( cr >= 25  )); then printf 'rare'
+    else                       printf 'very_rare'
+    fi
+}
+
 # Shift a tier name N steps toward "very_rare", clamped.
 encounter_tier_shift() {
     local tier="$1" steps="$2" i base target
