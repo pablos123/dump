@@ -244,3 +244,17 @@ JSON
     bbb_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="bbb") | .key' <<< "$output")"
     [ "$bbb_tier" = "uncommon" ]
 }
+
+@test "encounter_tier_for_capture_rate: boundary values map to expected tiers" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_REPO_ROOT
+    load_lib encounter
+    [ "$(encounter_tier_for_capture_rate 255)" = "common" ]
+    [ "$(encounter_tier_for_capture_rate 150)" = "common" ]
+    [ "$(encounter_tier_for_capture_rate 149)" = "uncommon" ]
+    [ "$(encounter_tier_for_capture_rate 75)"  = "uncommon" ]
+    [ "$(encounter_tier_for_capture_rate 74)"  = "rare" ]
+    [ "$(encounter_tier_for_capture_rate 25)"  = "rare" ]
+    [ "$(encounter_tier_for_capture_rate 24)"  = "very_rare" ]
+    [ "$(encounter_tier_for_capture_rate 3)"   = "very_rare" ]
+}
