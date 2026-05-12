@@ -49,6 +49,7 @@ instance Eq Punto2d where
 instance Eq Punto3d where
   P3d (i, j, k) == P3d (l, m, n) = (i == l) && (j == m) && (k == n)
 
+-- 2)
 fromList :: (Punto p) => [p] -> NdTree p
 fromList [] = Empty
 fromList xs = fromList' xs 0 (dimension (head xs))
@@ -64,6 +65,7 @@ fromList' xs i d =
       r_list = drop (m_ind + 1) sorted
    in Node (fromList' (take m_ind sorted ++ takeWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) m_punto (fromList' (dropWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) eje
 
+-- 3)
 insertar :: (Punto p) => p -> NdTree p -> NdTree p
 insertar p Empty = Node Empty p Empty 0
 insertar p (Node Empty pt r e)
@@ -76,6 +78,7 @@ insertar p (Node l pt r e)
   | coord e p > coord e pt = Node l pt (insertar p r) e
   | otherwise = Node (insertar p l) pt r e
 
+-- 4)
 eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
 eliminar _ Empty = Empty
 eliminar p n@(Node Empty pt Empty e)
@@ -177,6 +180,27 @@ getSmallers (Node l p r _) e =
           | cl > x -> p : rightListSmallers
           | cr > x -> p : leftListSmallers
           | otherwise -> p : leftListSmallers ++ rightListSmallers
+
+-- 5)
+type Rect = (Punto2d, Punto2d)
+
+-- Definir una función inRegion : Punto2d → Rect → Bool, que determine si un punto de dos dimensiones
+-- está dentro de un rectángulo.
+inRegion :: Punto2d -> Rect -> Bool
+inRegion p rect = inRegionAxis p rect 0 && inRegionAxis p rect 1
+
+inRegionAxis :: Punto2d -> Rect -> Int -> Bool
+inRegionAxis (P2d (x, _)) (P2d (ax, _), P2d (bx, _)) 0 = x <= max ax bx && x >= min ax bx
+inRegionAxis (P2d (_, y)) (P2d (_, ay), P2d (_, by)) 1 = y <= max ay by && y >= min ay by
+
+-- Definir una función ortogonalSearch :: NdTree Punto2d → Rect → [Punto2d], que dado un conjunto s de
+-- puntos en el plano y un rectángulo, encuentre los puntos de s que están dentro del rectángulo dado.
+ortogonalSearch :: NdTree Punto2d -> Rect -> [Punto2d]
+ortogonalSearch Empty _ = []
+ortogonalSearch (Node l p@(P2d (x, y)) r e) rect@(P2d (ax, _), _)
+  | inRegion p rect = p : ortogonalSearch l rect ++ ortogonalSearch r rect
+  | inRegionAxis p rect e = ortogonalSearch l rect ++ ortogonalSearch r rect
+  | otherwise = if x < ax then ortogonalSearch r rect else ortogonalSearch l rect
 
 main :: IO ()
 main = do
@@ -299,3 +323,17 @@ main = do
 
   let t_foldl = foldl (flip insertar) Empty [P2d (2.0, 3.0), P2d (3.0, 4.0), P2d (3.0, 3.0), P2d (3.5, 3.5), P2d (5.0, 6.0)]
   print t_foldl
+
+  print "Ejercicio 5"
+  let rect1 = (P2d (0, 0), P2d (1, 1))
+  let rect2 = (P2d (0, 0), P2d (5, 5))
+  let rect3 = (P2d (1, 1), P2d (0, 0))
+  print (inRegion (P2d (0, 0.5)) rect1)
+  print (inRegion (P2d (0, 0.5)) rect2)
+  print (inRegion (P2d (0, 0.5)) rect3)
+  print (inRegion (P2d (-1, 0.5)) rect3)
+
+  print (ortogonalSearch t_foldl rect1)
+  print (ortogonalSearch t_foldl rect2)
+
+  print "aaaaaaaaaaaaaaa"
