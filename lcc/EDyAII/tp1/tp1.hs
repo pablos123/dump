@@ -77,13 +77,13 @@ fromList' xs h dim =
 -- 3)
 -- Agrega un nuevo punto a un árbol
 insertar :: (Punto p) => p -> NdTree p -> NdTree p
-insertar p Empty = Node Empty p Empty 0 -- Si es vacío
-insertar p (Node Empty pt r e) -- Si solo tiene hijo derecho
+insertar p Empty = Node Empty p Empty 0 -- Si es vacío.
+insertar p (Node Empty pt r e) -- Si solo tiene hijo derecho.
 -- Si la coordenada en el eje e es menor o igual a la coordenada del nodo en el mismo eje. Reemplazo el árbol vacío por el nuevo nodo.
   | coord e p <= coord e pt = Node (Node Empty p Empty ((e + 1) `mod` dimension pt)) pt r e
   -- Si no, inserto el nuevo nodo en el árbol derecho.
   | otherwise = Node Empty pt (insertar p r) e
-insertar p (Node l pt Empty e) -- Si solo tiene hijo izquierdo
+insertar p (Node l pt Empty e) -- Si solo tiene hijo izquierdo.
 -- Si la coordenada en el eje e es mayor a la coordenada del nodo en el mismo eje. Reemplazo el árbol vacío por el nuevo nodo.
   | coord e p > coord e pt = Node l pt (Node Empty p Empty ((e + 1) `mod` dimension pt)) e
   -- Si no, inserto el nuevo nodo en el árbol izquierdo.
@@ -95,38 +95,53 @@ insertar p (Node l pt r e) -- Si tiene ambos hijos.
   | otherwise = Node (insertar p l) pt r e
 
 -- 4)
+-- Elimina un punto de un árbol.
 eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
-eliminar _ Empty = Empty
-eliminar p n@(Node Empty pt Empty e)
+eliminar _ Empty = Empty -- Si el árbol es vacío, no hay nada que eliminar.
+eliminar p n@(Node Empty pt Empty e) -- Si no tiene hijos.
+-- Sólo elimino si conciden.
   | p == pt = Empty
+  -- Si no. No existe en el árbol.
   | otherwise = n
-eliminar p n@(Node l pt Empty e)
-  | p == pt = replaceLeft n -- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol izquierdo.
+eliminar p n@(Node l pt Empty e) -- Si no tiene hijo derecho.
+-- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol izquierdo.
+  | p == pt = replaceLeft n
+  -- Si la coordenada del punto a eliminar es menor a la coordenada del nodo: eliminar sobre el único hijo.
   | coord e p <= coord e pt = Node (eliminar p l) pt Empty e
+  -- Si no. No existe en el árbol.
   | otherwise = n
-eliminar p n@(Node l pt r e)
-  | p == pt = replaceRight n -- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol derecho.
+eliminar p n@(Node l pt r e) -- Si tiene hijo derecho.
+-- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol derecho.
+  | p == pt = replaceRight n
+  -- Si la coordenada del punto a eliminar es mayor a la coordenada del nodo eliminar sobre el hijo derecho.
   | coord e p > coord e pt = Node l pt (eliminar p r) e
+  -- Si no, eliminar sobre el hijo izquierdo.
   | otherwise = Node (eliminar p l) pt r e
 
+-- Reemplaza la raíz de un árbol por un nodo del hijo izquierdo.
+-- El nodo candidato que busca del hijo izquierdo es alguno de los que tienen la mayor coordenada en el eje de la raíz.
 replaceLeft :: (Eq p, Punto p) => NdTree p -> NdTree p
-replaceLeft (Node l pt Empty e) =
-  let bigger = getBigger l e
-   in Node (eliminar bigger l) bigger Empty e
+replaceLeft (Node l pt Empty e) = let bigger = getBigger l e in Node (eliminar bigger l) bigger Empty e
 replaceLeft _ = error "Bad node for eliminarFoundLeft"
 
+-- Reemplaza la raíz de un árbol por un nodo del hijo derecho.
+-- Los nodos candidatos que se buscan del hijo derecho son los que tienen la menor coordenada en el eje de la raíz.
+-- El primer elemento de la lista de candidatos es usado como reemplazo de la raíz del árbol.
+-- El resto de los nodos de la lista de candidatos los elimina de la derecha y los vuelve a insertar a la izquierda para no perder la invariante.
 replaceRight :: (Eq p, Punto p) => NdTree p -> NdTree p
 replaceRight (Node l pt r e) =
-  let smallerBiggers = getSmallers r e
-      candidato = head smallerBiggers
-      toMovePoints = tail smallerBiggers
-   in Node (foldl (flip insertar) l toMovePoints) candidato (foldl (flip eliminar) r smallerBiggers) e
+  let candidatos = getSmallers r e in Node (foldl (flip insertar) l (tail candidatos)) (head candidatos) (foldl (flip eliminar) r candidatos) e
 
+-- Encuentra en un árbol el punto con la mayor coordenada en un eje.
 getBigger :: (Eq p, Punto p) => NdTree p -> Int -> p
 getBigger Empty _ = error "Bad node for getBigger"
+-- Si no tiene sub-árboles entonces la raíz es el punto con mayor coordenada.
 getBigger (Node Empty p Empty _) _ = p
+-- Si no tiene sub-árbol derecho me quedo con el mayor entre el punto y el mayor del sub-árbol izquierdo.
 getBigger (Node l p Empty _) e = let bigger = getBigger l e in if coord e bigger > coord e p then bigger else p
+-- Si no tiene sub-árbol izquierdo me quedo con el mayor entre el punto y el mayor del sub-árbol derecho.
 getBigger (Node Empty p r _) e = let bigger = getBigger r e in if coord e bigger > coord e p then bigger else p
+-- Si tiene los dos sub-árboles me quedo con el mayor de los tres.
 getBigger (Node l p r _) e =
   let biggerLeft = getBigger l e
       biggerRight = getBigger r e
@@ -138,6 +153,7 @@ getBigger (Node l p r _) e =
           | cl >= x && cl >= cr -> biggerLeft
           | otherwise -> biggerRight
 
+-- Encuentra en un árbol todos los puntos con menor coordenada en un eje.
 getSmallers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
 getSmallers Empty _ = []
 getSmallers (Node Empty p Empty _) _ = [p]
