@@ -61,10 +61,10 @@ fromList' xs h dim =
       med_ind = length sorted `div` 2
 
       med = sorted !! med_ind
-      med_coord = coord eje med
+      med_c = coord eje med
       r_list = drop (med_ind + 1) sorted
       -- Tomo los puntos que tienen su valor igual al valor en el eje de la mediana de la lista de los valores posteriores al índice de la mediana.
-      r_list_equal = takeWhile (\x -> coord eje x == med_coord) r_list
+      r_list_equal = takeWhile (\x -> coord eje x == med_c) r_list
       -- Crear un árbol l con los puntos de la lista que tienen como valor en el eje seleccionado
       -- un valor menor o igual al valor en el eje de la mediana.
       l = fromList' (take med_ind sorted ++ r_list_equal) (h + 1) dim
@@ -138,58 +138,77 @@ getBigger Empty _ = error "Bad node for getBigger"
 -- Si no tiene sub-árboles entonces la raíz es el punto con mayor coordenada.
 getBigger (Node Empty p Empty _) _ = p
 -- Si no tiene sub-árbol derecho me quedo con el mayor entre el punto y el mayor del sub-árbol izquierdo.
-getBigger (Node l p Empty _) e = let bigger = getBigger l e in if coord e bigger > coord e p then bigger else p
+getBigger (Node l p Empty _) e = let bigger_left = getBigger l e in if coord e bigger_left > coord e p then bigger_left else p
 -- Si no tiene sub-árbol izquierdo me quedo con el mayor entre el punto y el mayor del sub-árbol derecho.
-getBigger (Node Empty p r _) e = let bigger = getBigger r e in if coord e bigger > coord e p then bigger else p
+getBigger (Node Empty p r _) e = let bigger_right = getBigger r e in if coord e bigger_right > coord e p then bigger_right else p
 -- Si tiene los dos sub-árboles me quedo con el mayor de los tres.
 getBigger (Node l p r _) e =
-  let biggerLeft = getBigger l e
-      biggerRight = getBigger r e
-      cl = coord e biggerLeft
-      cr = coord e biggerRight
+  let bigger_left = getBigger l e
+      bigger_right = getBigger r e
+      cl = coord e bigger_left
+      cr = coord e bigger_right
    in case coord e p of
         x
           | x >= cl && x >= cr -> p
-          | cl >= x && cl >= cr -> biggerLeft
-          | otherwise -> biggerRight
+          | cl >= x && cl >= cr -> bigger_left
+          | otherwise -> bigger_right
 
--- Encuentra en un árbol todos los puntos con menor coordenada en un eje.
+-- Encuentra en un árbol todos los puntos con la menor coordenada en un eje.
 getSmallers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
 getSmallers Empty _ = []
+-- Si no tiene sub-árboles entonces la raíz es el punto con menor coordenada.
 getSmallers (Node Empty p Empty _) _ = [p]
+-- Si no tiene sub-árbol derecho obtengo los menores del sub-árbol izquierdo.
 getSmallers (Node l p Empty _) e =
-  let leftListSmallers = getSmallers l e
-      c = coord e p
-      cl = coord e (head leftListSmallers)
-   in case c of
+  let smallers_left = getSmallers l e
+      -- Sea cl la coordenada en el eje e de todos los menores del sub-árbol izquierdo. En particular tomo la cabeza de los menores.
+      cl = coord e (head smallers_left)
+   in case coord e p of
         x
-          | cl < x -> leftListSmallers
+          -- Si x es mayor a cl, devolvemos los menores del hijo izquierdo.
+          | cl < x -> smallers_left
+          -- Si x es menor que cl, entonces la raíz es el menor del árbol.
           | x < cl -> [p]
-          | otherwise -> p : leftListSmallers
+          -- Si coinciden entonces devolver la lista con la raíz y los menores del hijo izquierdo.
+          | otherwise -> p : smallers_left
+-- Si no tiene sub-árbol izquierdo obtengo los menores del sub-árbol derecho.
 getSmallers (Node Empty p r _) e =
-  let rightListSmallers = getSmallers r e
-      c = coord e p
-      cr = coord e (head rightListSmallers)
-   in case c of
+  let smallers_right = getSmallers r e
+      -- Sea cr la coordenada en el eje e de todos los menores del sub-árbol derecho. En particular tomo la cabeza de los menores.
+      cr = coord e (head smallers_right)
+   in case coord e p of
         x
-          | cr < x -> rightListSmallers
+          -- Si x es mayor a cr, devolvemos los menores del hijo derecho.
+          | cr < x -> smallers_right
+          -- Si x es menor que cr, entonces la raíz es el menor del árbol.
           | x < cr -> [p]
-          | otherwise -> p : rightListSmallers
+          -- Si coinciden entonces devolver la lista con la raíz y los menores del hijo derecho.
+          | otherwise -> p : smallers_right
+-- Si tiene los dos sub-árboles me quedo con los menores de los tres.
 getSmallers (Node l p r _) e =
-  let leftListSmallers = getSmallers l e
-      rightListSmallers = getSmallers r e
-      c = coord e p
-      cl = coord e (head leftListSmallers)
-      cr = coord e (head rightListSmallers)
-   in case c of
+  let smallers_left = getSmallers l e
+      smallers_right = getSmallers r e
+      -- Sea cl la coordenada en el eje e de todos los menores del sub-árbol izquierdo. En particular tomo la cabeza de los menores.
+      cl = coord e (head smallers_left)
+      -- Sea cr la coordenada en el eje e de todos los menores del sub-árbol derecho. En particular tomo la cabeza de los menores.
+      cr = coord e (head smallers_right)
+   in case coord e p of
         x
-          | cl < x && cl < cr -> leftListSmallers
-          | cr < x && cr < cl -> rightListSmallers
+          -- Si cl es el menor de los tres entonces devolvemos los menores del hijo izquierdo.
+          | cl < x && cl < cr -> smallers_left
+          -- Si cr es el menor de los tres entonces devolvemos los menores del hijo derecho.
+          | cr < x && cr < cl -> smallers_right
+          -- Si x es el menor de los tres entonces la raíz es el menor del árbol.
           | x < cl && x < cr -> [p]
-          | x > cl -> leftListSmallers ++ rightListSmallers
-          | cl > x -> p : rightListSmallers
-          | cr > x -> p : leftListSmallers
-          | otherwise -> p : leftListSmallers ++ rightListSmallers
+          -- En estos casos al menos dos, son iguales.
+          -- Si cl == cr entonces devuelvo la lista de los menores del hijo izquierdo y los menores del hijo derecho.
+          | x > cl -> smallers_left ++ smallers_right
+          -- Si x == cr entonces devuelvo la lista de la raíz y los menores del hijo derecho.
+          | cl > x -> p : smallers_right
+          -- Si x == cl entonces devuelvo la lista de la raíz y los menores del hijo izquierdo.
+          | cr > x -> p : smallers_left
+          -- Si x == cl == cr entonces devuelvo la lista con todos.
+          | otherwise -> p : smallers_left ++ smallers_right
 
 -- 5)
 type Rect = (Punto2d, Punto2d)
