@@ -73,55 +73,35 @@ setup() {
     [ "$(encounter_tier_shift very_rare 2)" = "very_rare" ]
 }
 
-@test "build_pool: treecko area produces v2 tier shape, no pct in entries" {
-    local areas='["rustboro-route-area"]'
-    run encounter_build_pool "$areas" ""
+@test "build_pool: type-derived produces tier shape, includes evolution stages" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
+    export POKIDLE_CONFIG_DIR
+    mkdir -p "$POKIDLE_CONFIG_DIR"
+    cat > "$POKIDLE_CONFIG_DIR/biomes.json" <<EOF
+{ "biomes": [
+    { "id": "testbiome", "label": "Test", "types": ["grass", "bug"] }
+] }
+EOF
+    load_lib biome
+    load_lib encounter
+    stub_pokeapi
+    run encounter_build_pool testbiome
     [ "$status" -eq 0 ]
-    # Output is the inner object {tiers:{...}} — encounter_pool_save wraps it.
     local has_tiers
-    has_tiers="$(jq 'has("tiers")' <<< "$output")"
+    has_tiers="$(jq 'has("tiers") and (.tiers | has("common") and has("uncommon") and has("rare") and has("very_rare"))' <<< "$output")"
     [ "$has_tiers" = "true" ]
-    local has_pct
-    has_pct="$(jq '[.tiers[][] | has("pct")] | any' <<< "$output")"
-    [ "$has_pct" = "false" ]
-}
-
-@test "build_pool: treecko (chance=40) is common; grovyle uncommon; sceptile rare" {
-    local areas='["rustboro-route-area"]'
-    run encounter_build_pool "$areas" ""
-    [ "$status" -eq 0 ]
-    local treecko_tier grovyle_tier sceptile_tier
-    treecko_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="treecko") | .key' <<< "$output")"
-    grovyle_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="grovyle") | .key' <<< "$output")"
-    sceptile_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="sceptile") | .key' <<< "$output")"
-    [ "$treecko_tier"  = "common" ]
-    [ "$grovyle_tier"  = "uncommon" ]
-    [ "$sceptile_tier" = "rare" ]
-}
-
-@test "build_pool: grovyle level 16-18, sceptile 36-38, treecko 5-7" {
-    local areas='["rustboro-route-area"]'
-    run encounter_build_pool "$areas" ""
-    [ "$status" -eq 0 ]
-    local t_min t_max g_min g_max s_min s_max
-    t_min="$(jq -r '.tiers.common[]    | select(.species=="treecko")  | .min' <<< "$output")"
-    t_max="$(jq -r '.tiers.common[]    | select(.species=="treecko")  | .max' <<< "$output")"
-    g_min="$(jq -r '.tiers.uncommon[]  | select(.species=="grovyle")  | .min' <<< "$output")"
-    g_max="$(jq -r '.tiers.uncommon[]  | select(.species=="grovyle")  | .max' <<< "$output")"
-    s_min="$(jq -r '.tiers.rare[]      | select(.species=="sceptile") | .min' <<< "$output")"
-    s_max="$(jq -r '.tiers.rare[]      | select(.species=="sceptile") | .max' <<< "$output")"
-    [ "$t_min" = "5" ]  && [ "$t_max" = "7" ]
-    [ "$g_min" = "16" ] && [ "$g_max" = "18" ]
-    [ "$s_min" = "36" ] && [ "$s_max" = "38" ]
-}
-
-@test "build_pool: empty tiers are present as empty arrays" {
-    local areas='["rustboro-route-area"]'
-    run encounter_build_pool "$areas" ""
-    [ "$status" -eq 0 ]
-    local vr
-    vr="$(jq -r '.tiers.very_rare | type' <<< "$output")"
-    [ "$vr" = "array" ]
+    local cat_tier
+    cat_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("caterpie")) | .key' <<< "$output")"
+    [ "$cat_tier" = "common" ]
+    local meta_tier
+    meta_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("metapod")) | .key' <<< "$output")"
+    [ "$meta_tier" = "uncommon" ]
+    local tre_tier
+    tre_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("treecko")) | .key' <<< "$output")"
+    [ "$tre_tier" = "uncommon" ]
 }
 
 @test "encounter_pool_save writes schema:2 and tiers wrapper" {
@@ -205,45 +185,6 @@ EOF
     [ "$(jq -r '.[0].evolution_details[0].item.name' <<< "$output")" = "water-stone" ]
 }
 
-@test "build_pool: species seen in two tiers ends up in the most-common one" {
-    # Synthetic area: 'aaa' (chance 50 -> common) whose evolution chain also
-    # contains 'bbb'. Separately, 'bbb' is its own entry with chance 5 -> rare.
-    # After dedup, bbb must land in uncommon (common+1 from chain shift),
-    # not rare.
-    pokeapi_get() {
-        case "$1" in
-            location-area/synthetic-area)
-                cat <<'JSON'
-{"name":"synthetic-area","pokemon_encounters":[
-  {"pokemon":{"name":"aaa"},"version_details":[{"version":{"name":"emerald"},
-    "encounter_details":[{"min_level":5,"max_level":7,"chance":50,"method":{"name":"walk"}}]}]},
-  {"pokemon":{"name":"bbb"},"version_details":[{"version":{"name":"emerald"},
-    "encounter_details":[{"min_level":20,"max_level":22,"chance":5,"method":{"name":"walk"}}]}]}
-]}
-JSON
-                ;;
-            pokemon/aaa) printf '{"id":1,"species":{"name":"aaa"}}' ;;
-            pokemon/bbb) printf '{"id":2,"species":{"name":"bbb"}}' ;;
-            pokemon-species/aaa) printf '{"evolution_chain":{"url":"https://x/evolution-chain/1/"}}' ;;
-            pokemon-species/bbb) printf '{"evolution_chain":{"url":"https://x/evolution-chain/2/"}}' ;;
-            evolution-chain/1)
-                printf '%s' '{"chain":{"species":{"name":"aaa"},"evolution_details":[],"evolves_to":[{"species":{"name":"bbb"},"evolution_details":[{"min_level":16}],"evolves_to":[]}]}}'
-                ;;
-            evolution-chain/2)
-                printf '%s' '{"chain":{"species":{"name":"bbb"},"evolution_details":[],"evolves_to":[]}}'
-                ;;
-            *) return 1 ;;
-        esac
-    }
-    export -f pokeapi_get
-
-    local areas='["synthetic-area"]'
-    run encounter_build_pool "$areas" ""
-    [ "$status" -eq 0 ]
-    local bbb_tier
-    bbb_tier="$(jq -r '.tiers | to_entries[] | select(.value[].species=="bbb") | .key' <<< "$output")"
-    [ "$bbb_tier" = "uncommon" ]
-}
 
 @test "encounter_tier_for_capture_rate: boundary values map to expected tiers" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
