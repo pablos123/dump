@@ -2,19 +2,14 @@ import Data.List (sortBy)
 
 data NdTree p
   = Node
-      (NdTree p) -- sub´arbol izquierdo
+      (NdTree p) -- sub-árbol izquierdo
       p -- punto
-      (NdTree p) -- sub´arbol derecho
+      (NdTree p) -- sub-árbol derecho
       Int -- eje
   | Empty
   deriving (Eq, Ord)
 
-instance (Show p) => Show (NdTree p) where
-  show Empty = " . "
-  -- show (Node Empty p Empty e) = " (" ++ " h " ++ show p ++ " h " ++ show e ++ ") "
-  show (Node l p r e) =
-    " (" ++ show l ++ " <- " ++ show p ++ " -> " ++ show r ++ show e ++ ") "
-
+-- 1)
 class Punto p where
   -- devuelve el número de coordenadas de un punto
   dimension :: p -> Int
@@ -34,14 +29,14 @@ instance Punto Punto2d where
   dimension _ = 2
   coord 0 (P2d (i, _)) = i
   coord 1 (P2d (_, j)) = j
-  coord _ (P2d _) = error "Bad index for Punto2d"
+  coord _ (P2d _) = error "Bad axis for Punto2d"
 
 instance Punto Punto3d where
   dimension _ = 3
   coord 0 (P3d (i, _, _)) = i
   coord 1 (P3d (_, j, _)) = j
   coord 2 (P3d (_, _, k)) = k
-  coord _ (P3d _) = error "Bad index for Punto3d"
+  coord _ (P3d _) = error "Bad axis for Punto3d"
 
 instance Eq Punto2d where
   P2d (i, j) == P2d (k, l) = (i == k) && (j == l)
@@ -50,32 +45,53 @@ instance Eq Punto3d where
   P3d (i, j, k) == P3d (l, m, n) = (i == l) && (j == m) && (k == n)
 
 -- 2)
+-- Construye un árbol a partir de una lista de puntos.
 fromList :: (Punto p) => [p] -> NdTree p
 fromList [] = Empty
 fromList xs = fromList' xs 0 (dimension (head xs))
 
+-- Construye un árbol a partir de una lista, la altura donde comienza a armar el árbol y la dimensión de los puntos del árbol.
 fromList' :: (Punto p) => [p] -> Int -> Int -> NdTree p
 fromList' [] _ _ = Empty
-fromList' xs i d =
-  let eje = i `mod` d
+fromList' xs h dim =
+  -- Seleccionar el eje sobre el cual se alineará el hiperplano.
+  let eje = h `mod` dim
       sorted = sortBy (\x y -> compare (coord eje x) (coord eje y)) xs
-      m_ind = length sorted `div` 2
-      m_punto = sorted !! m_ind
-      m_value_p = coord eje m_punto
-      r_list = drop (m_ind + 1) sorted
-   in Node (fromList' (take m_ind sorted ++ takeWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) m_punto (fromList' (dropWhile (\x -> coord eje x == m_value_p) r_list) (i + 1) d) eje
+      -- Calcular la mediana de la la lista de puntos, según el eje seleccionado.
+      med_ind = length sorted `div` 2
+
+      med = sorted !! med_ind
+      med_coord = coord eje med
+      r_list = drop (med_ind + 1) sorted
+      -- Tomo los puntos que tienen su valor igual al valor en el eje de la mediana de la lista de los valores posteriores al índice de la mediana.
+      r_list_equal = takeWhile (\x -> coord eje x == med_coord) r_list
+      -- Crear un árbol l con los puntos de la lista que tienen como valor en el eje seleccionado
+      -- un valor menor o igual al valor en el eje de la mediana.
+      l = fromList' (take med_ind sorted ++ r_list_equal) (h + 1) dim
+      -- Crear un árbol r con los puntos de la lista que tienen como valor en el eje seleccionado
+      -- un valor mayor al valor en el eje de la mediana.
+      r = fromList' (drop (length r_list_equal) r_list) (h + 1) dim
+   in -- Crear un nodo del árbol que tenga como raíz la mediana, como eje el eje seleccionado, como subárbol izquierdo el árbol l y como subárbol derecho el árbol r.
+      Node l med r eje
 
 -- 3)
+-- Agrega un nuevo punto a un árbol
 insertar :: (Punto p) => p -> NdTree p -> NdTree p
-insertar p Empty = Node Empty p Empty 0
-insertar p (Node Empty pt r e)
+insertar p Empty = Node Empty p Empty 0 -- Si es vacío
+insertar p (Node Empty pt r e) -- Si solo tiene hijo derecho
+-- Si la coordenada en el eje e es menor o igual a la coordenada del nodo en el mismo eje. Reemplazo el árbol vacío por el nuevo nodo.
   | coord e p <= coord e pt = Node (Node Empty p Empty ((e + 1) `mod` dimension pt)) pt r e
+  -- Si no, inserto el nuevo nodo en el árbol derecho.
   | otherwise = Node Empty pt (insertar p r) e
-insertar p (Node l pt Empty e)
+insertar p (Node l pt Empty e) -- Si solo tiene hijo izquierdo
+-- Si la coordenada en el eje e es mayor a la coordenada del nodo en el mismo eje. Reemplazo el árbol vacío por el nuevo nodo.
   | coord e p > coord e pt = Node l pt (Node Empty p Empty ((e + 1) `mod` dimension pt)) e
+  -- Si no, inserto el nuevo nodo en el árbol izquierdo.
   | otherwise = Node (insertar p l) pt Empty e
-insertar p (Node l pt r e)
+insertar p (Node l pt r e) -- Si tiene ambos hijos.
+-- Si la coordenada en el eje e es mayor a la coordenada del nodo en el mismo eje. Inserto a derecha.
   | coord e p > coord e pt = Node l pt (insertar p r) e
+  -- Si no, inserto el nuevo nodo en el árbol izquierdo.
   | otherwise = Node (insertar p l) pt r e
 
 -- 4)
@@ -85,64 +101,42 @@ eliminar p n@(Node Empty pt Empty e)
   | p == pt = Empty
   | otherwise = n
 eliminar p n@(Node l pt Empty e)
-  | p == pt = eliminarFoundLeft n
+  | p == pt = replaceLeft n -- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol izquierdo.
   | coord e p <= coord e pt = Node (eliminar p l) pt Empty e
   | otherwise = n
 eliminar p n@(Node l pt r e)
-  | p == pt = eliminarFoundRight n
+  | p == pt = replaceRight n -- Se encontró el dato a eliminar. Reemplazarlo por un candidato del árbol derecho.
   | coord e p > coord e pt = Node l pt (eliminar p r) e
   | otherwise = Node (eliminar p l) pt r e
 
-eliminarFoundLeft :: (Eq p, Punto p) => NdTree p -> NdTree p
-eliminarFoundLeft (Node l pt Empty e) =
-  let biggerSmallers = getBiggers l e
-      candidato = head biggerSmallers
-   in Node (eliminar candidato l) candidato Empty e
-eliminarFoundLeft _ = error "Bad node for eliminarFoundLeft"
+replaceLeft :: (Eq p, Punto p) => NdTree p -> NdTree p
+replaceLeft (Node l pt Empty e) =
+  let bigger = getBigger l e
+   in Node (eliminar bigger l) bigger Empty e
+replaceLeft _ = error "Bad node for eliminarFoundLeft"
 
-eliminarFoundRight :: (Eq p, Punto p) => NdTree p -> NdTree p
-eliminarFoundRight (Node l pt r e) =
+replaceRight :: (Eq p, Punto p) => NdTree p -> NdTree p
+replaceRight (Node l pt r e) =
   let smallerBiggers = getSmallers r e
       candidato = head smallerBiggers
       toMovePoints = tail smallerBiggers
    in Node (foldl (flip insertar) l toMovePoints) candidato (foldl (flip eliminar) r smallerBiggers) e
 
-getBiggers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
-getBiggers Empty _ = []
-getBiggers (Node Empty p Empty _) _ = [p]
-getBiggers (Node l p Empty _) e =
-  let leftListBiggers = getBiggers l e
-      c = coord e p
-      cl = coord e (head leftListBiggers)
-   in case c of
+getBigger :: (Eq p, Punto p) => NdTree p -> Int -> p
+getBigger Empty _ = error "Bad node for getBigger"
+getBigger (Node Empty p Empty _) _ = p
+getBigger (Node l p Empty _) e = let bigger = getBigger l e in if coord e bigger > coord e p then bigger else p
+getBigger (Node Empty p r _) e = let bigger = getBigger r e in if coord e bigger > coord e p then bigger else p
+getBigger (Node l p r _) e =
+  let biggerLeft = getBigger l e
+      biggerRight = getBigger r e
+      cl = coord e biggerLeft
+      cr = coord e biggerRight
+   in case coord e p of
         x
-          | cl > x -> leftListBiggers
-          | x > cl -> [p]
-          | otherwise -> p : leftListBiggers
-getBiggers (Node Empty p r _) e =
-  let rightListBiggers = getBiggers r e
-      c = coord e p
-      cr = coord e (head rightListBiggers)
-   in case c of
-        x
-          | cr > x -> rightListBiggers
-          | x > cr -> [p]
-          | otherwise -> p : rightListBiggers
-getBiggers (Node l p r _) e =
-  let leftListBiggers = getBiggers l e
-      rightListBiggers = getBiggers r e
-      c = coord e p
-      cl = coord e (head leftListBiggers)
-      cr = coord e (head rightListBiggers)
-   in case c of
-        x
-          | cl > x && cl > cr -> leftListBiggers
-          | cr > x && cr > cl -> rightListBiggers
-          | x > cl && x > cr -> [p]
-          | x < cl -> leftListBiggers ++ rightListBiggers
-          | cl < x -> p : rightListBiggers
-          | cr < x -> p : leftListBiggers
-          | otherwise -> p : leftListBiggers ++ rightListBiggers
+          | x >= cl && x >= cr -> p
+          | cl >= x && cl >= cr -> biggerLeft
+          | otherwise -> biggerRight
 
 getSmallers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
 getSmallers Empty _ = []
