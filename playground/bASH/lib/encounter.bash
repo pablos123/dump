@@ -321,114 +321,111 @@ encounter_walk_chain() {
     ' <<< "$chain_json"
 }
 
-# encounter_build_pool <areas_json_array>
+# encounter_build_pool <biome_id>
 # Emits a JSON object {tiers:{common:[],uncommon:[],rare:[],very_rare:[]}}
-# where every entry is {species, min, max} (no pct). Entries are tier-bucketed
-# from the aggregated raw chance and chain-shifted one tier per evolution
-# stage, clamped at very_rare. On species collision across tiers, the
-# most-common tier wins.
+# where every entry is {species, min, max} (no pct). Type-derived: union
+# species across biome.types[], filter out legendaries/mythicals,
+# tier by capture_rate, expand evolution chain stages, dedup.
 encounter_build_pool() {
-    local areas_json="$1"
+    local biome_id="$1"
+    if ! command -v biome_types_for > /dev/null; then
+        # shellcheck disable=SC1091
+        source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
+    fi
 
-    # 1. Aggregate raw rows from each area.
-    local raw='[]'
-    local area
-    while IFS= read -r area; do
-        [[ -z "$area" ]] && continue
-        local area_json
-        area_json="$(pokeapi_get "location-area/$area")" || return 1
-        local rows
-        rows="$(jq -c '
-            .pokemon_encounters[] |
-            .pokemon.name as $sp |
-            .version_details[] |
-            .version.name as $ver |
-            .encounter_details[] |
-            {species: $sp, min: .min_level, max: .max_level, chance: .chance, version: $ver}
-        ' <<< "$area_json")"
-        local row
-        while IFS= read -r row; do
-            [[ -z "$row" ]] && continue
-            raw="$(jq -c --argjson r "$row" '. + [$r]' <<< "$raw")"
-        done <<< "$rows"
-    done <<< "$(jq -r '.[]' <<< "$areas_json")"
+    # 1. Union species across biome.types[].
+    local types_list species_union='[]'
+    types_list="$(biome_types_for "$biome_id")" || return 1
+    local t
+    while IFS= read -r t; do
+        [[ -z "$t" ]] && continue
+        local type_body
+        type_body="$(pokeapi_get "type/$t")" || return 1
+        species_union="$(jq -c --argjson e "$(jq -c '[.pokemon[].pokemon.name]' <<< "$type_body")" \
+            '. + $e | unique' <<< "$species_union")"
+    done <<< "$types_list"
 
-    # 2. Per-species aggregate min/max/sum(chance).
-    local base
-    base="$(jq -c '
-        group_by(.species) | map({
-            species: (.[0].species),
-            min: ([.[].min] | min),
-            max: ([.[].max] | max),
-            pct: ([.[].chance] | add)
-        })
-    ' <<< "$raw")"
-
-    # 3. Walk evolution chain for each root, classify each stage into a tier.
-    #    Output a flat list of {species, min, max, tier_idx}.
-    local flat='[]'
-    local entries entry
-    entries="$(jq -c '.[]' <<< "$base")"
-    while IFS= read -r entry; do
-        [[ -z "$entry" ]] && continue
-        local sp min max pct delta root_tier root_idx
-        sp="$(jq -r '.species' <<< "$entry")"
-        min="$(jq -r '.min' <<< "$entry")"
-        max="$(jq -r '.max' <<< "$entry")"
-        pct="$(jq -r '.pct' <<< "$entry")"
-        delta=$((max - min))
-        root_tier="$(encounter_tier_for_pct "$pct")"
-        root_idx=-1
+    # 2. For each species: filter legendary/mythical; classify by capture_rate.
+    local base='[]'
+    local sp
+    while IFS= read -r sp; do
+        [[ -z "$sp" ]] && continue
+        local spec
+        spec="$(pokeapi_get "pokemon-species/$sp" 2>/dev/null)" || continue
+        local is_leg is_myth cr
+        is_leg="$(jq -r '.is_legendary // false' <<< "$spec")"
+        is_myth="$(jq -r '.is_mythical // false' <<< "$spec")"
+        [[ "$is_leg" == "true" || "$is_myth" == "true" ]] && continue
+        cr="$(jq -r '.capture_rate // 45' <<< "$spec")"
+        local tier tier_idx
+        tier="$(encounter_tier_for_capture_rate "$cr")"
+        tier_idx=-1
         local i
         for i in 0 1 2 3; do
-            [[ "${ENCOUNTER_TIERS[$i]}" == "$root_tier" ]] && root_idx=$i && break
+            [[ "${ENCOUNTER_TIERS[$i]}" == "$tier" ]] && tier_idx=$i && break
         done
+        base="$(jq -c --arg sp "$sp" --argjson ti "$tier_idx" \
+            '. + [{species:$sp, tier_idx:$ti}]' <<< "$base")"
+    done < <(jq -r '.[]' <<< "$species_union")
 
-        # Resolve form -> base species for the chain lookup.
-        local poke_obj species_name
-        poke_obj="$(pokeapi_get "pokemon/$sp")" || return 1
-        species_name="$(jq -r '.species.name' <<< "$poke_obj")"
+    # 3. Walk evolution chain per root species: expand stages, shift tier.
+    local flat='[]'
+    local n
+    n="$(jq 'length' <<< "$base")"
+    local seen_chains='[]'
+    for (( i=0; i<n; i++ )); do
+        local entry sp tier_idx
+        entry="$(jq -c ".[$i]" <<< "$base")"
+        sp="$(jq -r '.species' <<< "$entry")"
+        tier_idx="$(jq -r '.tier_idx' <<< "$entry")"
 
-        local spec chain_url chain_id chain stages
-        spec="$(pokeapi_get "pokemon-species/$species_name")" || return 1
+        local spec chain_url chain_id
+        spec="$(pokeapi_get "pokemon-species/$sp" 2>/dev/null)" || continue
         chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
+        if [[ -z "$chain_url" || "$chain_url" == "null" ]]; then
+            flat="$(jq -c --arg s "$sp" --argjson t "$tier_idx" \
+                '. + [{species:$s, min:5, max:15, tier_idx:$t}]' <<< "$flat")"
+            continue
+        fi
         chain_id="$(basename -- "${chain_url%/}")"
-        chain="$(pokeapi_get "evolution-chain/$chain_id")" || return 1
+
+        if jq -e --arg c "$chain_id" 'index($c)' <<< "$seen_chains" > /dev/null; then
+            continue
+        fi
+        seen_chains="$(jq -c --arg c "$chain_id" '. + [$c]' <<< "$seen_chains")"
+
+        local chain stages
+        chain="$(pokeapi_get "evolution-chain/$chain_id" 2>/dev/null)" || continue
         stages="$(encounter_walk_chain "$chain")"
 
         local stage_entries
         stage_entries="$(jq -c \
-            --argjson root_min "$min" --argjson root_max "$max" --argjson delta "$delta" \
-            --argjson root_idx "$root_idx" --argjson stages "$stages" '
-            $stages
+            --argjson root_idx "$tier_idx" --arg anchor "$sp" --argjson stages "$stages" '
+            ($stages | map(.species) | index($anchor)) as $anchor_stage
+            | $stages
             | sort_by(.stage_idx)
             | reduce .[] as $s (
                 {expanded: [], by_idx: {}};
-                if $s.stage_idx == 0 then
-                    .expanded += [{
-                        species: $s.species, min: $root_min, max: $root_max,
-                        tier_idx: $root_idx
-                    }]
-                    | .by_idx[($s.stage_idx|tostring)] = $root_max
-                else
-                    (.by_idx[(($s.stage_idx - 1)|tostring)]) as $parent_max |
-                    (if $s.min_level_evo != null then $s.min_level_evo
-                     else ($parent_max + 10) end) as $emin |
-                    ([$root_idx + $s.stage_idx, 3] | min) as $tidx |
-                    .expanded += [{
-                        species: $s.species, min: $emin, max: ($emin + $delta),
-                        tier_idx: $tidx
-                    }]
-                    | .by_idx[($s.stage_idx|tostring)] = ($emin + $delta)
-                end
+                ($s.stage_idx - ($anchor_stage // 0)) as $offset
+                | (if $s.stage_idx == 0 then 5 else
+                       (.by_idx[(($s.stage_idx - 1)|tostring)] // 15) + 1
+                   end) as $emin_pre
+                | (if $s.min_level_evo != null and $s.stage_idx > 0 then
+                       $s.min_level_evo
+                   else $emin_pre end) as $emin
+                | ($emin + 10) as $emax
+                | ([$root_idx + $offset, 3] | map(if . < 0 then 0 else . end) | min) as $tidx
+                | .expanded += [{
+                    species: $s.species, min: $emin, max: $emax, tier_idx: $tidx
+                  }]
+                | .by_idx[($s.stage_idx|tostring)] = $emax
               )
             | .expanded
         ' <<< 'null')"
         flat="$(jq -c --argjson e "$stage_entries" '. + $e' <<< "$flat")"
-    done <<< "$entries"
+    done
 
-    # 4. Collision dedup: same species in multiple tiers -> keep min tier_idx
-    #    (= most common). Within a tier, merge duplicate species.
+    # 4. Collision dedup: same species in multiple tiers -> keep min tier_idx.
     local deduped
     deduped="$(jq -c '
         group_by(.species)
@@ -444,7 +441,7 @@ encounter_build_pool() {
     ' <<< "$flat")"
 
     # 5. Bucket into tier arrays.
-    jq -c --argjson tiers "$(printf '%s' "[\"common\",\"uncommon\",\"rare\",\"very_rare\"]")" '
+    jq -c --argjson tiers '["common","uncommon","rare","very_rare"]' '
         ($tiers | map({(.) : []}) | add) as $empty
         | reduce .[] as $e ($empty;
             ($tiers[$e.tier_idx]) as $name
