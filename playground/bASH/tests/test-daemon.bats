@@ -58,3 +58,18 @@ source_pokidle_lib() {
     [ "$next" -ge "$now" ]
     [ "$next" -lt "$((now + interval))" ]
 }
+
+@test "daemon: persists last_legendary_tick_target on first start" {
+    POKIDLE_TICK_FAST=1
+    POKIDLE_NO_NOTIFY=1
+    POKIDLE_LEGENDARY_CHANCE=0
+    POKIDLE_LEGENDARY_INTERVAL=86400
+    POKIDLE_CONFIG_DIR="$REPO_ROOT/config"
+    export POKIDLE_TICK_FAST POKIDLE_NO_NOTIFY POKIDLE_LEGENDARY_CHANCE POKIDLE_LEGENDARY_INTERVAL POKIDLE_CONFIG_DIR
+    timeout 5 "$REPO_ROOT/pokidle" daemon >/dev/null 2>&1 || true
+    local val
+    val="$(sqlite3 "$POKIDLE_DB_PATH" \
+        "SELECT value FROM daemon_state WHERE key='last_legendary_tick_target';")"
+    [ -n "$val" ]
+    [[ "$val" =~ ^[0-9]+$ ]]
+}
