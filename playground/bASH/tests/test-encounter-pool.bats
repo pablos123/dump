@@ -101,7 +101,12 @@ EOF
     [ "$meta_tier" = "uncommon" ]
     local tre_tier
     tre_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("treecko")) | .key' <<< "$output")"
-    [ "$tre_tier" = "uncommon" ]
+    [ "$tre_tier" = "rare" ]
+    local grov_tier scep_tier
+    grov_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("grovyle")) | .key' <<< "$output")"
+    [ "$grov_tier" = "very_rare" ]
+    scep_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("sceptile")) | .key' <<< "$output")"
+    [ "$scep_tier" = "very_rare" ]
 }
 
 @test "encounter_pool_save writes schema:2 and tiers wrapper" {
