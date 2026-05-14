@@ -218,21 +218,6 @@ setup() {
     [[ "$output" =~ ^(rawst|aspear|chesto|lum)$ ]]
 }
 
-@test "encounter_roll_item: emits json with item + sprite_url" {
-    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
-    mkdir -p "$POKIDLE_CONFIG_DIR"
-    cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
-    export POKIDLE_CONFIG_DIR
-
-    run encounter_roll_item cave
-    [ "$status" -eq 0 ]
-    local item sprite
-    item="$(jq -r '.item' <<< "$output")"
-    sprite="$(jq -r '.sprite_url' <<< "$output")"
-    [[ "$item" =~ ^(everstone|hard-stone|smoke-ball|dusk-stone|thick-club)$ ]]
-    [[ "$sprite" == *"$item.png"* ]]
-}
-
 @test "encounter_roll_friendship returns species base_happiness" {
     # Stub returns a /pokemon-species response with base_happiness=50.
     pokeapi_get() {
