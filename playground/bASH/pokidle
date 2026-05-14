@@ -27,6 +27,8 @@ source "$POKIDLE_REPO_ROOT/lib/biome.bash"
 source "$POKIDLE_REPO_ROOT/lib/encounter.bash"
 # shellcheck source=lib/evolution.bash
 source "$POKIDLE_REPO_ROOT/lib/evolution.bash"
+# shellcheck source=lib/legendary.bash
+source "$POKIDLE_REPO_ROOT/lib/legendary.bash"
 # shellcheck source=lib/notify.bash
 source "$POKIDLE_REPO_ROOT/lib/notify.bash"
 # shellcheck source=lib/showdown.bash
@@ -42,7 +44,7 @@ Usage:
 Commands:
   daemon                  Run main loop (used by systemd unit)
   tick <kind> [flags]      Run a single roll now (default: dry-run, no DB write)
-                            kind: pokemon | item | level | friendship | evolve
+                            kind: pokemon | item | level | friendship | evolve | legendary
                             --no-dry-run    Persist DB writes
                             --no-notify     Skip notify-send
                             --json          Emit JSON to stdout
@@ -246,6 +248,10 @@ pokidle_tick() {
             ;;
         evolve)
             pokidle_tick_evolve "$@"
+            return
+            ;;
+        legendary)
+            pokidle_tick_legendary "$@"
             return
             ;;
     esac
@@ -580,6 +586,75 @@ pokidle_tick_evolve() {
         else
             jq -r '.[] | "evolve: #\(.id) \(.from) -> \(.to) (\(.kind))"' <<< "$evolved"
         fi
+    fi
+}
+pokidle_tick_legendary() {
+    local dry_run=1 no_notify=0 emit_json=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)    dry_run=1; shift ;;
+            --no-dry-run) dry_run=0; shift ;;
+            --no-notify)  no_notify=1; shift ;;
+            --json)       emit_json=1; shift ;;
+            *) printf 'tick legendary: unknown flag %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+
+    db_init
+
+    local active sid biome
+    active="$(db_active_biome_session)"
+    if [[ -z "$active" ]]; then
+        biome="$(biome_pick_random)"
+        sid="$(db_open_biome_session "$biome" "$(date +%s)")"
+    else
+        IFS=$'\t' read -r sid biome _ <<< "$active"
+    fi
+
+    local chance="${POKIDLE_LEGENDARY_CHANCE:-3}"
+    if (( RANDOM % 100 >= chance )); then
+        if (( emit_json )); then
+            jq -n '{spawned: false}'
+        else
+            printf 'legendary: no spawn this tick (chance=%s)\n' "$chance"
+        fi
+        return 0
+    fi
+
+    local species enc sprite_url sprite_path=""
+    species="$(legendary_roll_species)"
+    enc="$(legendary_build_encounter "$species" "$biome")" || return 1
+    sprite_url="$(jq -r '.sprite_url // ""' <<< "$enc")"
+    if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
+        sprite_path="$POKIDLE_CACHE_DIR/sprites/$species.png"
+        mkdir -p -- "$(dirname -- "$sprite_path")"
+        [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
+    fi
+
+    local label enc_with_meta
+    label="$(biome_get "$biome" | jq -r '.label')"
+    enc_with_meta="$(jq -c \
+        --arg label "$label" --arg sp "$sprite_path" '
+        . + {biome_label: $label, sprite_path: $sp}
+    ' <<< "$enc")"
+
+    if (( dry_run == 0 )); then
+        local enc_for_db
+        enc_for_db="$(jq -c \
+            --argjson sid "$sid" --argjson ts "$(date +%s)" --arg sp "$sprite_path" '
+            . + {session_id: $sid, encountered_at: $ts, sprite_path: $sp}
+        ' <<< "$enc")"
+        db_insert_encounter "$enc_for_db"
+    fi
+
+    if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_POKEMON:-1}" == "1" ]]; then
+        notify_pokemon "$enc_with_meta"
+    fi
+
+    if (( emit_json )); then
+        printf '%s\n' "$enc_with_meta"
+    else
+        jq -r '"legendary: \(.species) lvl \(.level) [\(.biome_label)]"' <<< "$enc_with_meta"
     fi
 }
 pokidle_list() {

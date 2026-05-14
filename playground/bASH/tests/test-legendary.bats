@@ -57,3 +57,63 @@ setup() {
     berry="$(jq -r '.held_berry' <<< "$enc")"
     [ "$berry" = "null" ]
 }
+
+@test "tick legendary --dry-run: rolls but does not insert" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_LEGENDARY_CHANCE=100
+    POKIDLE_NO_NOTIFY=1
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_LEGENDARY_CHANCE POKIDLE_NO_NOTIFY
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('forest', 1700000000);"
+    run "$REPO_ROOT/pokidle" tick legendary --dry-run
+    [ "$status" -eq 0 ]
+    local count
+    count="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM encounters;")"
+    [ "$count" = "0" ]
+}
+
+@test "tick legendary --no-dry-run: inserts encounter when chance is 100" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_LEGENDARY_CHANCE=100
+    POKIDLE_NO_NOTIFY=1
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_LEGENDARY_CHANCE POKIDLE_NO_NOTIFY
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('forest', 1700000000);"
+    run "$REPO_ROOT/pokidle" tick legendary --no-dry-run --json
+    [ "$status" -eq 0 ]
+    local count is_in_roster sp
+    count="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM encounters;")"
+    [ "$count" = "1" ]
+    sp="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT species FROM encounters LIMIT 1;")"
+    load_lib legendary
+    is_in_roster=0
+    local s
+    for s in "${LEGENDARY_SPECIES[@]}"; do
+        [[ "$s" == "$sp" ]] && is_in_roster=1 && break
+    done
+    [ "$is_in_roster" = "1" ]
+}
+
+@test "tick legendary: no spawn when chance is 0" {
+    POKIDLE_DB_PATH="$(make_tmp_db)"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_LEGENDARY_CHANCE=0
+    POKIDLE_NO_NOTIFY=1
+    export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_LEGENDARY_CHANCE POKIDLE_NO_NOTIFY
+    load_lib db
+    db_init
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('forest', 1700000000);"
+    run "$REPO_ROOT/pokidle" tick legendary --no-dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no spawn"* ]]
+    local count
+    count="$(sqlite3 "$POKIDLE_DB_PATH" "SELECT COUNT(*) FROM encounters;")"
+    [ "$count" = "0" ]
+}
