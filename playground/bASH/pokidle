@@ -52,7 +52,7 @@ Commands:
   items [filters]         Pretty list of item drops
   stats                   Aggregates: totals, shinies, by biome, top species
   current                 Show current biome + counts
-  rebuild-pool [biome]    Force pool rebuild (one or all)
+  rebuild-pool [biome]    Force pool rebuild (one or all; type-derived)
   switch-biome <biome>    Close active session, open new session in <biome>
   clean [--yes]           Purge pool cache + legacy biome-areas dir
   setup [--enable]        Install user systemd unit + config dirs
@@ -61,7 +61,7 @@ Commands:
   help, -h, --help        Show this help
 
 See also:
-  docs/superpowers/specs/2026-05-02-pokidle-design.md
+  docs/superpowers/specs/2026-05-10-biome-redesign-and-legendaries-design.md
   docs/notifications.md  (event list + POKIDLE_NOTIFY_* env vars)
 EOF
 }
