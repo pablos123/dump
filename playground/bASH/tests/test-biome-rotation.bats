@@ -86,3 +86,30 @@ _write_pool() {
     run biome_pick_random
     [ "$status" -ne 0 ]
 }
+
+@test "biome rotation announce: pool_size is sum of all tiers" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    POKIDLE_NO_NOTIFY=1
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_NO_NOTIFY
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    cat > "$POKIDLE_CACHE_DIR/pools/forest.json" <<EOF
+{
+    "biome": "forest", "schema": 3,
+    "tiers": {
+        "common": [{"species":"a"},{"species":"b"}],
+        "uncommon": [{"species":"c"}],
+        "rare": [],
+        "very_rare": []
+    },
+    "berries": ["pecha","chesto"]
+}
+EOF
+    POKIDLE_TEST_SOURCE_ONLY=1
+    export POKIDLE_TEST_SOURCE_ONLY
+    load_lib notify
+    source "$REPO_ROOT/pokidle"
+    run _pokidle_announce_biome forest
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"3 species"* ]]
+}
