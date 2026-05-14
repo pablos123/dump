@@ -240,30 +240,24 @@ ortogonalSearch (Node l p@(P2d (x, y)) r e) rect@(P2d (ax, _), _)
 
 main :: IO ()
 main = do
-  -- =========================
-  -- TESTS EJERCICIO 1
-  -- =========================
-
   print "=== Ejercicio 1 ==="
 
   print (coord 0 (P2d (3, 4)))
   print (coord 1 (P2d (3, 4)))
-  print (dimension (P2d (3, 4)))
 
-  print (coord 0 (P3d (1, 2, 3)))
-  print (coord 2 (P3d (1, 2, 3)))
-  print (dimension (P3d (1, 2, 3)))
+  print (dimension (P2d (3, 4)))
 
   print (dist (P2d (0, 0)) (P2d (3, 4)))
   print (dist (P2d (1, 1)) (P2d (1, 1)))
-  print (dist (P3d (0, 0, 0)) (P3d (1, 2, 2)))
-
   print (dist (P2d (2, 2)) (P2d (2, 5)))
   print (dist (P2d (-1, -1)) (P2d (1, 1)))
 
-  -- =========================
-  -- TESTS EJERCICIO 2
-  -- =========================
+  print (coord 0 (P3d (1, 2, 3)))
+  print (coord 2 (P3d (1, 2, 3)))
+
+  print (dimension (P3d (1, 2, 3)))
+
+  print (dist (P3d (0, 0, 0)) (P3d (1, 2, 2)))
 
   print "=== Ejercicio 2 ==="
 
@@ -279,10 +273,6 @@ main = do
   print (fromList [P2d (1, 1), P2d (1, 1), P2d (1, 1)])
 
   print (fromList [P2d (1, 2), P2d (3, 4), P2d (5, 6), P2d (7, 8), P2d (9, 1), P2d (2, 3), P2d (4, 5), P2d (6, 7)])
-
-  -- =========================
-  -- TESTS EJERCICIO 3
-  -- =========================
 
   print "=== Ejercicio 3 ==="
 
@@ -301,10 +291,6 @@ main = do
 
   let t_same_axis = fromList [P2d (2, 2), P2d (2, 3)]
   print (insertar (P2d (2, 4)) t_same_axis)
-
-  -- =========================
-  -- TESTS EJERCICIO 4
-  -- =========================
 
   print "=== Ejercicio 4 ==="
 
@@ -339,31 +325,15 @@ main = do
   let t_chain3 = eliminar (P2d (7, 2)) t_chain2
   print t_chain3
 
-  -- =========================
-  -- OTROS
-  -- =========================
-
-  print "=== Stress Tests ==="
-
-  let t_same_x = fromList [P2d (2, 1), P2d (2, 2), P2d (2, 3), P2d (2, 4)]
-  print t_same_x
-  print (eliminar (P2d (2, 2)) t_same_x)
-
-  let t_mix = fromList [P2d (1, 1), P2d (1, 1), P2d (2, 2)]
-  print t_mix
-  print (eliminar (P2d (1, 1)) t_mix)
-
-  let t_single = fromList [P2d (1, 1)]
-  print t_single
-  print (eliminar (P2d (1, 1)) t_single)
-
   let t_foldl = foldl (flip insertar) Empty [P2d (2.0, 3.0), P2d (3.0, 4.0), P2d (3.0, 3.0), P2d (3.5, 3.5), P2d (5.0, 6.0)]
   print t_foldl
 
-  print "Ejercicio 5"
+  print "=== Ejercicio 5 ==="
+
   let rect1 = (P2d (0, 0), P2d (1, 1))
   let rect2 = (P2d (0, 0), P2d (5, 5))
   let rect3 = (P2d (1, 1), P2d (0, 0))
+
   print (inRegion (P2d (0, 0.5)) rect1)
   print (inRegion (P2d (0, 0.5)) rect2)
   print (inRegion (P2d (0, 0.5)) rect3)
@@ -371,5 +341,3 @@ main = do
 
   print (ortogonalSearch t_foldl rect1)
   print (ortogonalSearch t_foldl rect2)
-
-  print "aaaaaaaaaaaaaaa"
