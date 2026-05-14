@@ -152,9 +152,9 @@ notify_evolution() {
 }
 
 notify_biome_change() {
-    local label="$1" pool_size="$2" item_count="$3"
+    local label="$1" pool_size="$2" berry_count="$3"
     local title="Biome changed → $label"
-    local body="Encounters: $pool_size species, $item_count items"
+    local body="Encounters: $pool_size species, $berry_count berries"
     _emit "$title" "$body" "low" ""
 }
 
