@@ -744,21 +744,16 @@ pokidle_rebuild_pool() {
         biomes="$target"
     else
         biomes="$(biome_ids)"
-        # No biome arg = full rebuild. Wipe stale pool files first so
-        # leftover v1 (or removed-biome) files don't linger.
         rm -rf -- "$POKIDLE_CACHE_DIR/pools"
     fi
     local b
     while IFS= read -r b; do
         [[ -z "$b" ]] && continue
-        local areas_path="$POKIDLE_CACHE_DIR/biome-areas/$b.json"
-        if [[ ! -f "$areas_path" ]]; then
-            printf 'rebuild-pool: no area list for biome %s — run rebuild-biomes first\n' "$b" >&2
+        local pool
+        pool="$(encounter_build_pool "$b")" || {
+            printf 'rebuild-pool: build failed for %s\n' "$b" >&2
             continue
-        fi
-        local areas pool
-        areas="$(cat "$areas_path")"
-        pool="$(encounter_build_pool "$areas")"
+        }
         encounter_pool_save "$b" "$pool"
         local c u r v
         c="$(jq '.tiers.common    | length' <<< "$pool")"
