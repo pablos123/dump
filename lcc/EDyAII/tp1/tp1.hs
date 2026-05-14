@@ -7,7 +7,7 @@ data NdTree p
       (NdTree p) -- sub-árbol derecho
       Int -- eje
   | Empty
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 -- 1)
 class Punto p where
@@ -213,22 +213,29 @@ getSmallers (Node l p r _) e =
 -- 5)
 type Rect = (Punto2d, Punto2d)
 
--- Definir una función inRegion : Punto2d → Rect → Bool, que determine si un punto de dos dimensiones
--- está dentro de un rectángulo.
+-- Determina si un punto de dos dimensiones está dentro de un rectángulo.
 inRegion :: Punto2d -> Rect -> Bool
 inRegion p rect = inRegionAxis p rect 0 && inRegionAxis p rect 1
 
+-- Determina si un punto de dos dimensiones está en un intervalo dado un eje.
 inRegionAxis :: Punto2d -> Rect -> Int -> Bool
 inRegionAxis (P2d (x, _)) (P2d (ax, _), P2d (bx, _)) 0 = x <= max ax bx && x >= min ax bx
 inRegionAxis (P2d (_, y)) (P2d (_, ay), P2d (_, by)) 1 = y <= max ay by && y >= min ay by
 
--- Definir una función ortogonalSearch :: NdTree Punto2d → Rect → [Punto2d], que dado un conjunto s de
--- puntos en el plano y un rectángulo, encuentre los puntos de s que están dentro del rectángulo dado.
+-- Dado un conjunto s de puntos en el plano y un rectángulo, encuentre los puntos de s que están dentro del rectángulo dado.
 ortogonalSearch :: NdTree Punto2d -> Rect -> [Punto2d]
+-- Si el árbol es vacío nunca habrá puntos en el rectángulo.
 ortogonalSearch Empty _ = []
 ortogonalSearch (Node l p@(P2d (x, y)) r e) rect@(P2d (ax, _), _)
+  -- Si el punto está en el rectángulo entonces devuelvo el punto y los puntos que encuentre en ambos sub-árboles.
   | inRegion p rect = p : ortogonalSearch l rect ++ ortogonalSearch r rect
+  -- Si el punto está en el intervalo correspondiente al eje e entonces devuelvo los puntos que encuentre en ambos sub-árboles.
   | inRegionAxis p rect e = ortogonalSearch l rect ++ ortogonalSearch r rect
+  -- Si el punto no está en el intervalo correspondiente al eje e:
+  -- Si la coordenada del punto p es menor que las coordenadas de los extremos del rectángulo en ese eje
+  -- devuelvo el resultado de la búsqueda en el sub-árbol derecho.
+  -- Si la coordenada del punto p es mayor que las coordenadas de los extremos del rectángulo en ese eje
+  -- devuelvo el resultado de la búsqueda en el sub-árbol izquierdo.
   | otherwise = if x < ax then ortogonalSearch r rect else ortogonalSearch l rect
 
 main :: IO ()
