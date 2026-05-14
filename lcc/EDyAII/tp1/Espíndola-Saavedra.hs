@@ -1,3 +1,6 @@
+-- Trabajo Práctico 1 - Estructuras de Datos y Algoritmos II
+-- Ignacio Espíndola y Pablo Saavedra
+
 import Data.List (sortBy)
 
 data NdTree p
