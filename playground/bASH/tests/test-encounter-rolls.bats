@@ -288,3 +288,26 @@ setup() {
         [ "$v" = "true" ]
     done
 }
+
+@test "encounter_roll_item: forest biome rolls a typed or generic held item" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_REPO_ROOT
+    load_lib biome
+    load_lib encounter
+    pokeapi_get() {
+        printf '{"sprites":{"default":""}}'
+    }
+    export -f pokeapi_get
+    local out item
+    out="$(encounter_roll_item forest)"
+    item="$(jq -r '.item' <<< "$out")"
+    case "$item" in
+        miracle-seed|meadow-plate|rose-incense|rindo-berry|\
+        silver-powder|insect-plate|shed-shell|tanga-berry|\
+        poison-barb|toxic-plate|black-sludge|kebia-berry|\
+        pixie-plate|roseli-berry|\
+        leftovers|shell-bell|lucky-egg|amulet-coin|\
+        smoke-ball|soothe-bell|exp-share|everstone) : ;;
+        *) printf 'unexpected item for forest biome: %s\n' "$item" >&2; return 1 ;;
+    esac
+}
