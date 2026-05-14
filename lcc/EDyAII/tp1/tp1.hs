@@ -29,14 +29,14 @@ instance Punto Punto2d where
   dimension _ = 2
   coord 0 (P2d (i, _)) = i
   coord 1 (P2d (_, j)) = j
-  coord _ (P2d _) = error "Bad axis for Punto2d"
+  coord _ _ = error "Not defined"
 
 instance Punto Punto3d where
   dimension _ = 3
   coord 0 (P3d (i, _, _)) = i
   coord 1 (P3d (_, j, _)) = j
   coord 2 (P3d (_, _, k)) = k
-  coord _ (P3d _) = error "Bad axis for Punto3d"
+  coord _ _ = error "Not defined"
 
 instance Eq Punto2d where
   P2d (i, j) == P2d (k, l) = (i == k) && (j == l)
@@ -96,10 +96,11 @@ insertar p (Node l pt r e) -- Si tiene ambos hijos.
 
 -- 4)
 -- Elimina un punto de un árbol.
+-- Ver pie de página para más información.
 eliminar :: (Eq p, Punto p) => p -> NdTree p -> NdTree p
 eliminar _ Empty = Empty -- Si el árbol es vacío, no hay nada que eliminar.
-eliminar p n@(Node Empty pt Empty e) -- Si no tiene hijos.
--- Sólo elimino si conciden.
+eliminar p n@(Node Empty pt Empty _) -- Si no tiene hijos.
+-- Sólo elimino si coinciden.
   | p == pt = Empty
   -- Si no. No existe en el árbol.
   | otherwise = n
@@ -121,20 +122,20 @@ eliminar p n@(Node l pt r e) -- Si tiene hijo derecho.
 -- Reemplaza la raíz de un árbol por un nodo del hijo izquierdo.
 -- El nodo candidato que busca del hijo izquierdo es alguno de los que tienen la mayor coordenada en el eje de la raíz.
 replaceLeft :: (Eq p, Punto p) => NdTree p -> NdTree p
-replaceLeft (Node l pt Empty e) = let bigger = getBigger l e in Node (eliminar bigger l) bigger Empty e
-replaceLeft _ = error "Bad node for eliminarFoundLeft"
+replaceLeft (Node l _ Empty e) = let bigger = getBigger l e in Node (eliminar bigger l) bigger Empty e
+replaceLeft _ = error "Not defined"
 
 -- Reemplaza la raíz de un árbol por un nodo del hijo derecho.
 -- Los nodos candidatos que se buscan del hijo derecho son los que tienen la menor coordenada en el eje de la raíz.
 -- El primer elemento de la lista de candidatos es usado como reemplazo de la raíz del árbol.
 -- El resto de los nodos de la lista de candidatos los elimina de la derecha y los vuelve a insertar a la izquierda para no perder la invariante.
 replaceRight :: (Eq p, Punto p) => NdTree p -> NdTree p
-replaceRight (Node l pt r e) =
+replaceRight (Node l _ r e) =
   let candidatos = getSmallers r e in Node (foldl (flip insertar) l (tail candidatos)) (head candidatos) (foldl (flip eliminar) r candidatos) e
+replaceRight _ = error "Not defined"
 
 -- Encuentra en un árbol el punto con la mayor coordenada en un eje.
 getBigger :: (Eq p, Punto p) => NdTree p -> Int -> p
-getBigger Empty _ = error "Bad node for getBigger"
 -- Si no tiene sub-árboles entonces la raíz es el punto con mayor coordenada.
 getBigger (Node Empty p Empty _) _ = p
 -- Si no tiene sub-árbol derecho me quedo con el mayor entre el punto y el mayor del sub-árbol izquierdo.
@@ -152,6 +153,7 @@ getBigger (Node l p r _) e =
           | x >= cl && x >= cr -> p
           | cl >= x && cl >= cr -> bigger_left
           | otherwise -> bigger_right
+getBigger Empty _ = error "Not defined"
 
 -- Encuentra en un árbol todos los puntos con la menor coordenada en un eje.
 getSmallers :: (Eq p, Punto p) => NdTree p -> Int -> [p]
@@ -221,12 +223,13 @@ inRegion p rect = inRegionAxis p rect 0 && inRegionAxis p rect 1
 inRegionAxis :: Punto2d -> Rect -> Int -> Bool
 inRegionAxis (P2d (x, _)) (P2d (ax, _), P2d (bx, _)) 0 = x <= max ax bx && x >= min ax bx
 inRegionAxis (P2d (_, y)) (P2d (_, ay), P2d (_, by)) 1 = y <= max ay by && y >= min ay by
+inRegionAxis _ _ _ = error "Not defined"
 
 -- Dado un conjunto s de puntos en el plano y un rectángulo, encuentre los puntos de s que están dentro del rectángulo dado.
 ortogonalSearch :: NdTree Punto2d -> Rect -> [Punto2d]
 -- Si el árbol es vacío nunca habrá puntos en el rectángulo.
 ortogonalSearch Empty _ = []
-ortogonalSearch (Node l p@(P2d (x, y)) r e) rect@(P2d (ax, _), _)
+ortogonalSearch (Node l p@(P2d (x, _)) r e) rect@(P2d (ax, _), _)
   -- Si el punto está en el rectángulo entonces devuelvo el punto y los puntos que encuentre en ambos sub-árboles.
   | inRegion p rect = p : ortogonalSearch l rect ++ ortogonalSearch r rect
   -- Si el punto está en el intervalo correspondiente al eje e entonces devuelvo los puntos que encuentre en ambos sub-árboles.
@@ -264,15 +267,14 @@ main = do
   print (fromList ([] :: [Punto2d]))
   print (fromList [P2d (1, 1)])
   print (fromList [P2d (1, 1), P2d (2, 2)])
-
-  print (fromList [P2d (5, 4), P2d (2, 3), P2d (9, 6)])
-  print (fromList [P2d (9, 6), P2d (5, 4), P2d (2, 3)])
-
-  print (fromList [P2d (2, 2), P2d (2, 3), P2d (2, 4)])
-
   print (fromList [P2d (1, 1), P2d (1, 1), P2d (1, 1)])
-
+  print (fromList [P2d (2, 2), P2d (2, 3), P2d (2, 4)])
+  print (fromList [P2d (9, 6), P2d (5, 4), P2d (2, 3)])
   print (fromList [P2d (1, 2), P2d (3, 4), P2d (5, 6), P2d (7, 8), P2d (9, 1), P2d (2, 3), P2d (4, 5), P2d (6, 7)])
+
+  print (fromList ([] :: [Punto3d]))
+  print (fromList [P3d (1, 1, 1)])
+  print (fromList [P3d (1, 2, 1), P3d (3, 4, 4), P3d (5, 6, 3), P3d (7, 8, 1), P3d (9, 1, 1), P3d (2, 3, 3), P3d (4, 5, 111111111111111), P3d (6, 7, 10)])
 
   print "=== Ejercicio 3 ==="
 
@@ -282,12 +284,7 @@ main = do
   print (insertar (P2d (3, 3)) t_ins)
   print (insertar (P2d (7, 7)) t_ins)
 
-  let t1 = insertar (P2d (3, 3)) t_ins
-  let t2 = insertar (P2d (7, 7)) t1
-  let t3 = insertar (P2d (4, 4)) t2
-  print t3
-
-  print (insertar (P2d (5, 5)) t_ins)
+  print (insertar (P2d (4, 4)) (insertar (P2d (7, 7)) (insertar (P2d (3, 3)) t_ins)))
 
   let t_same_axis = fromList [P2d (2, 2), P2d (2, 3)]
   print (insertar (P2d (2, 4)) t_same_axis)
@@ -295,9 +292,7 @@ main = do
   print "=== Ejercicio 4 ==="
 
   let t_del1 = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6)]
-  print t_del1
   print (eliminar (P2d (2, 3)) t_del1)
-
   print (eliminar (P2d (5, 4)) t_del1)
 
   let t_left = fromList [P2d (5, 5), P2d (3, 3)]
@@ -312,21 +307,16 @@ main = do
   let t_dups = fromList [P2d (1, 1), P2d (1, 1), P2d (1, 1)]
   print (eliminar (P2d (1, 1)) t_dups)
 
-  let t_big = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
+  print "tbig"
 
+  let t_big = insertar (P2d (8, 2)) (fromList [P2d (2, 3), P2d (5, 4), P2d (8, 3), P2d (4, 7), P2d (8, 1), P2d (7, 2), P2d (8, 3)])
+  print t_big
   print (eliminar (P2d (7, 2)) t_big)
   print (eliminar (P2d (4, 7)) t_big)
   print (eliminar (P2d (8, 1)) t_big)
-
-  let t_chain0 = fromList [P2d (2, 3), P2d (5, 4), P2d (9, 6), P2d (4, 7), P2d (8, 1), P2d (7, 2)]
-
-  let t_chain1 = eliminar (P2d (2, 3)) t_chain0
-  let t_chain2 = eliminar (P2d (5, 4)) t_chain1
-  let t_chain3 = eliminar (P2d (7, 2)) t_chain2
-  print t_chain3
-
-  let t_foldl = foldl (flip insertar) Empty [P2d (2.0, 3.0), P2d (3.0, 4.0), P2d (3.0, 3.0), P2d (3.5, 3.5), P2d (5.0, 6.0)]
-  print t_foldl
+  print (eliminar (P2d (5, 4)) t_big)
+  print (eliminar (P2d (8, 3)) t_big)
+  print (eliminar (P2d (9, 9)) t_big)
 
   print "=== Ejercicio 5 ==="
 
@@ -339,5 +329,55 @@ main = do
   print (inRegion (P2d (0, 0.5)) rect3)
   print (inRegion (P2d (-1, 0.5)) rect3)
 
-  print (ortogonalSearch t_foldl rect1)
-  print (ortogonalSearch t_foldl rect2)
+  print (ortogonalSearch t_big rect1)
+  print (ortogonalSearch t_big rect2)
+
+{-
+
+Para este caso, al eliminar (7, 2) no podemos solamente
+reemplazar la raíz por un candidato que encontremos en el hijo
+derecho. Si hiciésemos eso, tendríamos en la raíz un punto con
+coordenada 8 en el eje 0, y dentro del sub-árbol derecho de la raíz
+tendríamos otros puntos también con coordenada 8 en el eje 0. Esto
+rompería la invariante.
+
+Por eso es que buscamos todos los candidatos que compartan coordenada
+del hijo derecho. El primero de ellos es usado como reemplazo, y el
+resto se eliminan del hijo derecho y se reinsertan en el izquierdo.
+
+t_big:
+
+                    (7,2) [0]
+                /                       \
+        (5,4) [1]                   (8,3) [1]
+        /         \                  /
+(2,3) [0]    (4,7) [0]       (8,3) [0]
+                                /
+                        (8,1) [1]
+                                \
+                                (8,2) [0]
+
+eliminar (7,2) t_big:
+
+                    (8,3) [0]
+                /
+        (5,4) [1]
+        /         \
+(2,3) [0]    (4,7) [0]
+        \
+    (8,3) [0]
+    /
+(8,1) [1]
+        \
+    (8,2) [0]
+
+eliminar (8,3) t_big
+
+                    (7,2) [0]
+                /                       \
+        (5,4) [1]                   (8,3) [1]
+        /         \                  /
+(2,3) [0]    (4,7) [0]       (8,1) [0]
+                                /
+                        (8,2) [1]
+-}
