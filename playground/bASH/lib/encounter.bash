@@ -11,6 +11,34 @@ ENCOUNTER_TIERS=(common uncommon rare very_rare)
 ENCOUNTER_TIER_PCT_MIN=(25 10 3 0)
 ENCOUNTER_TIER_ROLL_WEIGHT=(60 25 12 3)
 
+# Held items by PokeAPI type. Each type maps to a space-separated string of item names.
+declare -gA ENCOUNTER_HELD_ITEMS_BY_TYPE=(
+    [normal]="silk-scarf chilan-berry"
+    [fire]="charcoal flame-plate heat-rock occa-berry"
+    [water]="mystic-water sea-incense wave-incense splash-plate wacan-berry"
+    [electric]="magnet zap-plate cell-battery wacan-berry"
+    [grass]="miracle-seed meadow-plate rose-incense rindo-berry"
+    [ice]="never-melt-ice icicle-plate icy-rock yache-berry"
+    [fighting]="black-belt fist-plate muscle-band chople-berry"
+    [poison]="poison-barb toxic-plate black-sludge kebia-berry"
+    [ground]="soft-sand earth-plate shuca-berry"
+    [flying]="sharp-beak sky-plate pretty-feather coba-berry"
+    [psychic]="twisted-spoon mind-plate odd-incense payapa-berry"
+    [bug]="silver-powder insect-plate shed-shell tanga-berry"
+    [rock]="hard-stone stone-plate rock-incense charti-berry"
+    [ghost]="spell-tag spooky-plate reaper-cloth kasib-berry"
+    [dragon]="dragon-fang draco-plate dragon-scale haban-berry"
+    [dark]="black-glasses dread-plate scope-lens colbur-berry"
+    [steel]="metal-coat iron-plate metal-powder"
+    [fairy]="pixie-plate roseli-berry"
+)
+
+# Generic held items available for any biome type.
+declare -ga ENCOUNTER_HELD_ITEMS_GENERIC=(
+    "leftovers" "shell-bell" "lucky-egg" "amulet-coin"
+    "smoke-ball" "soothe-bell" "exp-share" "everstone"
+)
+
 encounter_tier_for_pct() {
     local pct="$1" i
     for i in 0 1 2 3; do
@@ -602,27 +630,32 @@ encounter_roll_friendship() {
 # Emits {"item": "<name>", "sprite_url": "<url|empty>"}.
 encounter_roll_item() {
     local biome_id="$1"
-    if ! command -v biome_get > /dev/null; then
+    if ! command -v biome_types_for > /dev/null; then
         # shellcheck disable=SC1091
         source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
     fi
-    local biome pool
-    biome="$(biome_get "$biome_id")" || return 1
-    pool="$(jq -c '.item_pool' <<< "$biome")"
-    local n
-    n="$(jq 'length' <<< "$pool")"
-    if (( n == 0 )); then
-        biome="$(biome_get wild)" || return 1
-        pool="$(jq -c '.item_pool' <<< "$biome")"
-        n="$(jq 'length' <<< "$pool")"
-    fi
-    (( n > 0 )) || return 1
+    local types_list pool=() seen=""
+    types_list="$(biome_types_for "$biome_id")" || return 1
+    local t item
+    while IFS= read -r t; do
+        [[ -z "$t" ]] && continue
+        for item in ${ENCOUNTER_HELD_ITEMS_BY_TYPE[$t]:-}; do
+            [[ "$seen" == *"|$item|"* ]] && continue
+            pool+=("$item")
+            seen+="|$item|"
+        done
+    done <<< "$types_list"
+    for item in "${ENCOUNTER_HELD_ITEMS_GENERIC[@]}"; do
+        [[ "$seen" == *"|$item|"* ]] && continue
+        pool+=("$item")
+        seen+="|$item|"
+    done
+    local n="${#pool[@]}"
+    (( n > 0 )) || { printf 'encounter_roll_item: empty pool for biome %s\n' "$biome_id" >&2; return 1; }
     local idx=$((RANDOM % n))
-    local name
-    name="$(jq -r ".[$idx]" <<< "$pool")"
-    local item_json
+    local name="${pool[$idx]}"
+    local item_json sprite
     item_json="$(pokeapi_get "item/$name")" || return 1
-    local sprite
     sprite="$(jq -r '.sprites.default // ""' <<< "$item_json")"
     jq -n --arg item "$name" --arg sprite "$sprite" '{item: $item, sprite_url: $sprite}'
 }
