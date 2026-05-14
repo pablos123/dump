@@ -59,3 +59,42 @@ setup() {
     [[ "$output" == *"Volcano"* ]]
     [[ "$output" == *"42"* ]]
 }
+
+@test "notify_pokemon: legendary encounter emits LEGENDARY prefix + critical urgency" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_NO_NOTIFY=1
+    POKIDLE_NO_SOUND=1
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    load_lib notify
+    local enc out
+    enc='{"species":"articuno","level":60,"nature":"timid","ability":"pressure","gender":"genderless","shiny":0,"held_berry":null,"biome_label":"Ice","stats":[210,180,200,240,220,230],"moves":["ice-beam"],"sprite_path":"","is_legendary":true}'
+    out="$(notify_pokemon "$enc")"
+    [[ "$out" == *"LEGENDARY"* ]]
+    [[ "$out" == *"URGENCY: critical"* ]]
+}
+
+@test "notify_pokemon: shiny+legendary stacks prefixes" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_NO_NOTIFY=1
+    POKIDLE_NO_SOUND=1
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    load_lib notify
+    local enc out
+    enc='{"species":"articuno","level":60,"nature":"timid","ability":"pressure","gender":"genderless","shiny":1,"held_berry":null,"biome_label":"Ice","stats":[210,180,200,240,220,230],"moves":["ice-beam"],"sprite_path":"","is_legendary":true}'
+    out="$(notify_pokemon "$enc")"
+    [[ "$out" == *"SHINY"* ]]
+    [[ "$out" == *"LEGENDARY"* ]]
+}
+
+@test "notify_pokemon: non-legendary unchanged" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_NO_NOTIFY=1
+    POKIDLE_NO_SOUND=1
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    load_lib notify
+    local enc out
+    enc='{"species":"pidgey","level":3,"nature":"jolly","ability":"keen-eye","gender":"M","shiny":0,"held_berry":null,"biome_label":"Plain","stats":[20,18,16,12,14,22],"moves":["tackle"],"sprite_path":""}'
+    out="$(notify_pokemon "$enc")"
+    [[ "$out" == *"URGENCY: normal"* ]]
+    [[ "$out" != *"LEGENDARY"* ]]
+}
