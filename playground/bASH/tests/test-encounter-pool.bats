@@ -109,27 +109,27 @@ EOF
     [ "$scep_tier" = "very_rare" ]
 }
 
-@test "encounter_pool_save writes schema:2 and tiers wrapper" {
+@test "encounter_pool_save writes schema:3 and tiers wrapper" {
     POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
     export POKIDLE_CACHE_DIR
-    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]},"berries":[]}'
     encounter_pool_save cave "$pool"
     local saved
     saved="$(cat "$POKIDLE_CACHE_DIR/pools/cave.json")"
-    [ "$(jq -r '.schema' <<< "$saved")" = "2" ]
+    [ "$(jq -r '.schema' <<< "$saved")" = "3" ]
     [ "$(jq -r '.biome' <<< "$saved")" = "cave" ]
     [ "$(jq -r '.tiers.common[0].species' <<< "$saved")" = "zubat" ]
     [ "$(jq '.tiers.uncommon | type' <<< "$saved")" = "\"array\"" ]
 }
 
-@test "encounter_pool_load returns full v2 file on read" {
+@test "encounter_pool_load returns full v3 file on read" {
     POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
     export POKIDLE_CACHE_DIR
-    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    local pool='{"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]},"berries":[]}'
     encounter_pool_save cave "$pool"
     run encounter_pool_load cave
     [ "$status" -eq 0 ]
-    [ "$(jq -r '.schema' <<< "$output")" = "2" ]
+    [ "$(jq -r '.schema' <<< "$output")" = "3" ]
     [ "$(jq -r '.tiers.common[0].species' <<< "$output")" = "zubat" ]
 }
 
@@ -203,4 +203,42 @@ EOF
     [ "$(encounter_tier_for_capture_rate 25)"  = "rare" ]
     [ "$(encounter_tier_for_capture_rate 24)"  = "very_rare" ]
     [ "$(encounter_tier_for_capture_rate 3)"   = "very_rare" ]
+}
+
+@test "build_pool: attaches berries derived from natural_gift_type" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
+    mkdir -p "$POKIDLE_CONFIG_DIR"
+    cat > "$POKIDLE_CONFIG_DIR/biomes.json" <<EOF
+{ "biomes": [
+    { "id": "watery", "label": "Watery", "types": ["water"] }
+] }
+EOF
+    load_lib biome
+    load_lib encounter
+    stub_pokeapi
+    run encounter_build_pool watery
+    [ "$status" -eq 0 ]
+    local has_b
+    has_b="$(jq 'has("berries") and (.berries | type == "array")' <<< "$output")"
+    [ "$has_b" = "true" ]
+    local has_chesto
+    has_chesto="$(jq -r '.berries | index("chesto") != null' <<< "$output")"
+    [ "$has_chesto" = "true" ]
+    local has_cheri
+    has_cheri="$(jq -r '.berries | index("cheri") != null' <<< "$output")"
+    [ "$has_cheri" = "false" ]
+}
+
+@test "pool save: schema version is 3" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR
+    load_lib encounter
+    encounter_pool_save fakebiome '{"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[]},"berries":[]}'
+    local sch
+    sch="$(jq -r '.schema' "$POKIDLE_CACHE_DIR/pools/fakebiome.json")"
+    [ "$sch" = "3" ]
 }
