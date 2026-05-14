@@ -318,20 +318,14 @@ encounter_roll_held_berry() {
         printf 'null'
         return
     fi
-    if ! command -v biome_get > /dev/null; then
-        # shellcheck disable=SC1091
-        source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
-    fi
-    local biome
-    biome="$(biome_get "$biome_id")" || return 1
-    local berries
-    mapfile -t berries < <(jq -r '.berry_pool[]' <<< "$biome")
-    local n="${#berries[@]}"
-    if (( n == 0 )); then
-        printf 'null'
-        return
-    fi
-    local idx=$((RANDOM % n))
+    local p
+    p="$(encounter_pool_path "$biome_id")"
+    [[ -f "$p" ]] || { printf 'null'; return; }
+    local berries n idx
+    mapfile -t berries < <(jq -r '.berries[]?' "$p")
+    n="${#berries[@]}"
+    (( n > 0 )) || { printf 'null'; return; }
+    idx=$((RANDOM % n))
     printf '%s' "${berries[$idx]}"
 }
 
@@ -469,14 +463,34 @@ encounter_build_pool() {
     ' <<< "$flat")"
 
     # 5. Bucket into tier arrays.
-    jq -c --argjson tiers '["common","uncommon","rare","very_rare"]' '
+    local tiered
+    tiered="$(jq -c --argjson tiers '["common","uncommon","rare","very_rare"]' '
         ($tiers | map({(.) : []}) | add) as $empty
         | reduce .[] as $e ($empty;
             ($tiers[$e.tier_idx]) as $name
             | .[$name] += [{species: $e.species, min: $e.min, max: $e.max}]
           )
-        | {tiers: .}
-    ' <<< "$deduped"
+    ' <<< "$deduped")"
+
+    # 6. Derive berries by natural_gift_type intersection with biome.types.
+    local berries='[]' berry_list
+    berry_list="$(pokeapi_get "berry?limit=100" | jq -r '.results[].name')"
+    local types_array
+    types_array="$(printf '%s\n' $(biome_types_for "$biome_id") | jq -R . | jq -s -c .)"
+    local berry
+    while IFS= read -r berry; do
+        [[ -z "$berry" ]] && continue
+        local bj ngt
+        bj="$(pokeapi_get "berry/$berry" 2>/dev/null)" || continue
+        ngt="$(jq -r '.natural_gift_type.name // ""' <<< "$bj")"
+        [[ -z "$ngt" ]] && continue
+        if printf '"%s"' "$ngt" | jq -e --argjson types "$types_array" '. as $t | $types | index($t) != null' > /dev/null; then
+            berries="$(jq -c --arg b "$berry" '. + [$b]' <<< "$berries")"
+        fi
+    done <<< "$berry_list"
+
+    jq -c -n --argjson tiers "$tiered" --argjson berries "$berries" \
+        '{tiers: $tiers, berries: $berries}'
 }
 
 encounter_pool_path() {
@@ -494,8 +508,9 @@ encounter_pool_save() {
                   --argjson p "$body_json" '{
         biome: $b,
         built_at: $ts,
-        schema: 2,
-        tiers: $p.tiers
+        schema: 3,
+        tiers: $p.tiers,
+        berries: ($p.berries // [])
     }')"
     printf '%s' "$body" > "$p"
 }

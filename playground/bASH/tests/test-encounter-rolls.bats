@@ -211,10 +211,22 @@ setup() {
 }
 
 @test "encounter_roll_held_berry: 100% rate returns one of biome berries" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    cat > "$POKIDLE_CACHE_DIR/pools/cave.json" <<EOF
+{
+    "biome": "cave",
+    "schema": 3,
+    "tiers": {"common":[],"uncommon":[],"rare":[],"very_rare":[]},
+    "berries": ["rawst", "aspear", "chesto", "lum"]
+}
+EOF
     POKIDLE_BERRY_RATE=100
+    export POKIDLE_BERRY_RATE
     run encounter_roll_held_berry "cave"
     [ "$status" -eq 0 ]
-    # cave berry_pool: rawst, aspear, chesto, lum
     [[ "$output" =~ ^(rawst|aspear|chesto|lum)$ ]]
 }
 
