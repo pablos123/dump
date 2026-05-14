@@ -150,6 +150,13 @@ pokidle_daemon() {
         db_state_set last_evolve_tick_target "$next_evolve" || \
             printf 'daemon: persist last_evolve_tick_target failed (continuing)\n' >&2
     fi
+    local next_legendary
+    next_legendary="$(db_state_get last_legendary_tick_target)"
+    if [[ -z "$next_legendary" || "$next_legendary" -le "$now" ]]; then
+        next_legendary="$(_pokidle_next_tick_target "$now" "${POKIDLE_LEGENDARY_INTERVAL:-86400}")"
+        db_state_set last_legendary_tick_target "$next_legendary" || \
+            printf 'daemon: persist last_legendary_tick_target failed (continuing)\n' >&2
+    fi
 
     trap '_pokidle_shutdown $sid; exit 0' INT TERM
 
@@ -199,6 +206,15 @@ pokidle_daemon() {
             db_state_set last_evolve_tick_target "$next_evolve" || \
                 printf 'daemon: persist last_evolve_tick_target failed (continuing)\n' >&2
         fi
+        if (( now >= next_legendary )); then
+            if [[ "${POKIDLE_LEGENDARY_ENABLED:-1}" == "1" ]]; then
+                pokidle_tick legendary --no-dry-run --json > /dev/null \
+                    || printf 'daemon: legendary tick failed (continuing)\n' >&2
+            fi
+            next_legendary="$(_pokidle_next_tick_target "$now" "${POKIDLE_LEGENDARY_INTERVAL:-86400}")"
+            db_state_set last_legendary_tick_target "$next_legendary" || \
+                printf 'daemon: persist last_legendary_tick_target failed (continuing)\n' >&2
+        fi
 
         local biome_end=$((biome_started_at + ${POKIDLE_BIOME_HOURS:-3} * 3600))
         local next_event=$next_pokemon
@@ -206,6 +222,7 @@ pokidle_daemon() {
         (( next_level < next_event )) && next_event=$next_level
         (( next_friendship < next_event )) && next_event=$next_friendship
         (( next_evolve < next_event )) && next_event=$next_evolve
+        (( next_legendary < next_event )) && next_event=$next_legendary
         (( biome_end < next_event )) && next_event="$biome_end"
         local sleep_for=$(( next_event - now ))
         (( sleep_for < 1 )) && sleep_for=1
