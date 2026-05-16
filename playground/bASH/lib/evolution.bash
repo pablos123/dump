@@ -235,8 +235,15 @@ evolution_apply() {
     local shiny
     shiny="$(jq -r '.shiny' <<< "$enc_row")"
 
+    # Forme-bearing evolved species (mimikyu, lycanroc, oricorio, …) need a
+    # variety pick — /pokemon/<bare-species> 404s for them. Falls back to bare
+    # name when the species has no variety table.
+    local variety
+    variety="$(encounter_pick_variety "$species")"
+    [[ -z "$variety" || "$variety" == "null" ]] && variety="$species"
+
     local poke base_stats sprite mods stats dex_id
-    poke="$(pokeapi_get "pokemon/$species")" || return 1
+    poke="$(pokeapi_get "pokemon/$variety")" || return 1
     dex_id="$(jq -r '.id' <<< "$poke")"
     if [[ "$shiny" == "1" ]]; then
         sprite="$(jq -r '.sprites.front_shiny // .sprites.front_default // ""' <<< "$poke")"

@@ -51,5 +51,3 @@ CREATE TABLE IF NOT EXISTS daemon_state (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
-
-INSERT OR IGNORE INTO daemon_state (key, value) VALUES ('schema_version', '1');

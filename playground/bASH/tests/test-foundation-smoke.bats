@@ -10,7 +10,9 @@ setup() {
     POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
     mkdir -p "$POKIDLE_CONFIG_DIR"
     cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
-    export POKIDLE_CONFIG_DIR
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    export POKIDLE_CONFIG_DIR POKIDLE_CACHE_DIR
 
     load_lib db
     load_lib biome
@@ -18,12 +20,23 @@ setup() {
 
 teardown() {
     rm -f "$POKIDLE_DB_PATH"
-    rm -rf "$POKIDLE_CONFIG_DIR"
+    rm -rf "$POKIDLE_CONFIG_DIR" "$POKIDLE_CACHE_DIR"
 }
 
 @test "foundation: pick biome -> open session -> insert encounter -> list" {
     db_init
     biome_validate
+
+    # Seed pool fixtures so biome_pick_random has eligible biomes.
+    local id
+    while IFS= read -r id; do
+        jq -n --arg b "$id" '
+            {biome: $b, schema: 2, tiers: {
+                common: [range(0; 50) | {species: ("s\(.))"), min: 5, max: 8}],
+                uncommon: [], rare: [], very_rare: []
+            }}
+        ' > "$POKIDLE_CACHE_DIR/pools/$id.json"
+    done < <(biome_ids)
 
     local biome
     biome="$(biome_pick_random)"

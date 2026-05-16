@@ -35,15 +35,15 @@ teardown() {
     [[ "$output" == *"no active biome"* ]]
 }
 
-@test "pokidle clean --yes purges pools dir" {
+@test "pokidle clean pools --yes purges pools dir" {
     mkdir -p "$POKIDLE_CACHE_DIR/pools"
     touch "$POKIDLE_CACHE_DIR/pools/cave.json"
-    run "$REPO_ROOT/pokidle" clean --yes
+    run "$REPO_ROOT/pokidle" clean pools --yes
     [ "$status" -eq 0 ]
     [ ! -f "$POKIDLE_CACHE_DIR/pools/cave.json" ]
 }
 
-@test "clean: removes biome-areas directory (legacy, no longer used)" {
+@test "clean pools: removes biome-areas directory (legacy, no longer used)" {
     local tmpcache
     tmpcache="$(mktemp -d)"
     mkdir -p "$tmpcache/pools" "$tmpcache/biome-areas"
@@ -52,10 +52,46 @@ teardown() {
     POKIDLE_CACHE_DIR="$tmpcache"
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     export POKIDLE_CACHE_DIR POKIDLE_REPO_ROOT
-    run "$REPO_ROOT/pokidle" clean --yes
+    run "$REPO_ROOT/pokidle" clean pools --yes
     [ "$status" -eq 0 ]
     [ ! -d "$tmpcache/pools" ]
     [ ! -d "$tmpcache/biome-areas" ]
+}
+
+@test "pokidle clean db --yes removes the sqlite db file" {
+    local tmpdb
+    tmpdb="$(mktemp "$BATS_TMPDIR/pokidle.XXXXXX.db")"
+    POKIDLE_DB_PATH="$tmpdb"
+    export POKIDLE_DB_PATH
+    sqlite3 "$tmpdb" "CREATE TABLE x(a INTEGER);"
+    [ -f "$tmpdb" ]
+    run "$REPO_ROOT/pokidle" clean db --yes
+    [ "$status" -eq 0 ]
+    [ ! -f "$tmpdb" ]
+}
+
+@test "pokidle clean all --yes wipes pools + biome-areas + db" {
+    local tmpcache tmpdb
+    tmpcache="$(mktemp -d)"
+    tmpdb="$(mktemp "$BATS_TMPDIR/pokidle.XXXXXX.db")"
+    mkdir -p "$tmpcache/pools" "$tmpcache/biome-areas"
+    : > "$tmpcache/pools/forest.json"
+    sqlite3 "$tmpdb" "CREATE TABLE x(a INTEGER);"
+    POKIDLE_CACHE_DIR="$tmpcache"
+    POKIDLE_DB_PATH="$tmpdb"
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    export POKIDLE_CACHE_DIR POKIDLE_DB_PATH POKIDLE_REPO_ROOT
+    run "$REPO_ROOT/pokidle" clean all --yes
+    [ "$status" -eq 0 ]
+    [ ! -d "$tmpcache/pools" ]
+    [ ! -d "$tmpcache/biome-areas" ]
+    [ ! -f "$tmpdb" ]
+}
+
+@test "pokidle clean without target prints usage and fails" {
+    run "$REPO_ROOT/pokidle" clean
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"usage:"* ]]
 }
 
 # Helper for tick tests: seed POKEAPI_CACHE_DIR with proper layout

@@ -25,7 +25,7 @@ teardown() {
     [ "$status" -eq 0 ]
     local n
     n="$(jq '.biomes | length' <<< "$output")"
-    [ "$n" = "17" ]
+    [ "$n" = "36" ]
 }
 
 @test "biome_get returns one biome by id" {
@@ -48,7 +48,7 @@ teardown() {
     [ "$status" -eq 0 ]
     local n
     n="$(printf '%s\n' "$output" | wc -l)"
-    [ "$n" = "17" ]
+    [ "$n" = "36" ]
 }
 
 @test "biome_validate passes on valid config" {
@@ -140,8 +140,8 @@ teardown() {
 @test "biome_validate: fails when an 18-list type is uncovered" {
     local tmp
     tmp="$(mktemp -d)"
-    # Strip 'psychic' from ruins (its only home).
-    jq '(.biomes[] | select(.id=="ruins") | .types) |= map(select(. != "psychic"))' \
+    # Strip 'psychic' from every biome so the type becomes uncovered.
+    jq '.biomes |= map(.types |= map(select(. != "psychic")))' \
         "$REPO_ROOT/config/biomes.json" > "$tmp/biomes.json"
     POKIDLE_CONFIG_DIR="$tmp" POKIDLE_REPO_ROOT="$REPO_ROOT"
     export POKIDLE_CONFIG_DIR POKIDLE_REPO_ROOT

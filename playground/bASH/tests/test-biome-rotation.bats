@@ -6,17 +6,43 @@ setup() {
     POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
     mkdir -p "$POKIDLE_CONFIG_DIR"
     cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
-    export POKIDLE_CONFIG_DIR
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    export POKIDLE_CONFIG_DIR POKIDLE_CACHE_DIR
     load_lib biome
 }
 
+teardown() {
+    rm -rf "$POKIDLE_CONFIG_DIR" "$POKIDLE_CACHE_DIR"
+}
+
+# Write a v2 pool file with N entries spread across common.
+_write_pool() {
+    local biome="$1" n="$2"
+    mkdir -p -- "$POKIDLE_CACHE_DIR/pools"
+    jq -n --arg b "$biome" --argjson n "$n" '
+        {biome: $b, schema: 2, tiers: {
+            common: [range(0; $n) | {species: ("s\(.))"), min: 5, max: 8}],
+            uncommon: [], rare: [], very_rare: []
+        }}
+    ' > "$POKIDLE_CACHE_DIR/pools/$biome.json"
+}
+
 @test "biome_pick_random returns a valid biome id" {
+    local id
+    while IFS= read -r id; do
+        _write_pool "$id" 50
+    done < <(biome_ids)
     run biome_pick_random
     [ "$status" -eq 0 ]
     biome_get "$output" >/dev/null
 }
 
 @test "biome_pick_random_excluding never returns the excluded id" {
+    local id
+    while IFS= read -r id; do
+        _write_pool "$id" 50
+    done < <(biome_ids)
     local i out
     for i in {1..30}; do
         out="$(biome_pick_random_excluding cave)"
@@ -32,18 +58,6 @@ setup() {
 
     run biome_pick_random_excluding "$(biome_ids)"
     [ "$status" -ne 0 ]
-}
-
-# Helper: write a v2 pool file with N entries spread across common.
-_write_pool() {
-    local biome="$1" n="$2"
-    mkdir -p -- "$POKIDLE_CACHE_DIR/pools"
-    jq -n --arg b "$biome" --argjson n "$n" '
-        {biome: $b, schema: 2, tiers: {
-            common: [range(0; $n) | {species: ("s\(.))"), min: 5, max: 8}],
-            uncommon: [], rare: [], very_rare: []
-        }}
-    ' > "$POKIDLE_CACHE_DIR/pools/$biome.json"
 }
 
 @test "biome_pick_random skips biomes with pool size <= 10" {

@@ -61,25 +61,6 @@ encounter_tier_for_capture_rate() {
     fi
 }
 
-# Shift a tier name N steps toward "very_rare", clamped.
-encounter_tier_shift() {
-    local tier="$1" steps="$2" i base target
-    base=-1
-    for i in 0 1 2 3; do
-        if [[ "${ENCOUNTER_TIERS[$i]}" == "$tier" ]]; then
-            base=$i
-            break
-        fi
-    done
-    if (( base < 0 )); then
-        printf 'encounter_tier_shift: bad tier %s\n' "$tier" >&2
-        return 1
-    fi
-    target=$(( base + steps ))
-    (( target > 3 )) && target=3
-    printf '%s' "${ENCOUNTER_TIERS[$target]}"
-}
-
 encounter_natures_list() {
     local body
     body="$(pokeapi_get "nature?limit=100")" || return 1
@@ -329,6 +310,42 @@ encounter_roll_held_berry() {
     printf '%s' "${berries[$idx]}"
 }
 
+# encounter_species_for_name <name>
+# Resolves a name (which may be a bare species OR a variety-suffixed Pokemon
+# name like shaymin-land/wormadam-plant/deoxys-attack) to its bare species
+# name. Try /pokemon-species/<name>; on 404 fall back to /pokemon/<name>
+# .species.name. Empty on total failure.
+encounter_species_for_name() {
+    local name="$1"
+    if pokeapi_get "pokemon-species/$name" > /dev/null 2>&1; then
+        printf '%s' "$name"
+        return 0
+    fi
+    local poke
+    poke="$(pokeapi_get "pokemon/$name" 2>/dev/null)" || return 1
+    jq -r '.species.name // empty' <<< "$poke"
+}
+
+# encounter_pick_variety <species>
+# Picks a random variety name from /pokemon-species/<sp>.varieties[]. Falls
+# back to <sp> if species lookup fails or varieties array is empty/missing.
+encounter_pick_variety() {
+    local sp="$1"
+    local spec
+    spec="$(pokeapi_get "pokemon-species/$sp" 2>/dev/null)" || { printf '%s' "$sp"; return; }
+    local n
+    n="$(jq '(.varieties // []) | length' <<< "$spec")"
+    if (( n == 0 )); then
+        printf '%s' "$sp"
+        return
+    fi
+    local idx=$((RANDOM % n))
+    local name
+    name="$(jq -r --argjson i "$idx" '.varieties[$i].pokemon.name // empty' <<< "$spec")"
+    [[ -z "$name" || "$name" == "null" ]] && name="$sp"
+    printf '%s' "$name"
+}
+
 # encounter_walk_chain <chain_json>
 # Emits a JSON array of {species, stage_idx, min_level_evo (nullable)}.
 # stage_idx 0 for root; root has no min_level_evo.
@@ -344,10 +361,11 @@ encounter_walk_chain() {
 }
 
 # encounter_build_pool <biome_id>
-# Emits a JSON object {tiers:{common:[],uncommon:[],rare:[],very_rare:[]}}
-# where every entry is {species, min, max} (no pct). Type-derived: union
-# species across biome.types[], filter out legendaries/mythicals,
-# tier by capture_rate, expand evolution chain stages, dedup.
+# Emits {tiers:{common:[],uncommon:[],rare:[],very_rare:[]}, berries:[...]}.
+# Pool = direct union of /type/<t> for each biome.types[]; legendaries/mythicals
+# dropped; each species tiered by its own capture_rate. min/max levels come from
+# the species' own evolution_details.min_level (root → 5-15; non-level evos like
+# stones → 5+15*stage_idx).
 encounter_build_pool() {
     local biome_id="$1"
     if ! command -v biome_types_for > /dev/null; then
@@ -355,124 +373,90 @@ encounter_build_pool() {
         source "${POKIDLE_REPO_ROOT}/lib/biome.bash"
     fi
 
-    # 1. Union species across biome.types[].
-    local types_list species_union='[]'
+    # 1. Union pokemon-resource names across biome.types[].
+    local types_list raw_names='[]'
     types_list="$(biome_types_for "$biome_id")" || return 1
     local t
     while IFS= read -r t; do
         [[ -z "$t" ]] && continue
         local type_body
         type_body="$(pokeapi_get "type/$t")" || return 1
-        species_union="$(jq -c --argjson e "$(jq -c '[.pokemon[].pokemon.name]' <<< "$type_body")" \
-            '. + $e | unique' <<< "$species_union")"
+        raw_names="$(jq -c --argjson e "$(jq -c '[.pokemon[].pokemon.name]' <<< "$type_body")" \
+            '. + $e | unique' <<< "$raw_names")"
     done <<< "$types_list"
 
-    # 2. For each species: filter legendary/mythical; classify by capture_rate.
-    local base='[]'
+    # 1b. /type/<t> returns variety-suffixed names (e.g. wormadam-plant,
+    #     shaymin-land, deoxys-attack) for forme-bearing species. Collapse
+    #     each name to its bare pokemon-species name and dedup. Without this,
+    #     /pokemon-species/<variety> 404s and the species silently drops.
+    local species_union='[]' n
+    while IFS= read -r n; do
+        [[ -z "$n" ]] && continue
+        local bare
+        bare="$(encounter_species_for_name "$n" 2>/dev/null)" || continue
+        [[ -z "$bare" ]] && continue
+        species_union="$(jq -c --arg s "$bare" '. + [$s] | unique' <<< "$species_union")"
+    done < <(jq -r '.[]' <<< "$raw_names")
+
+    # 2. Per species: filter legendary/mythical, tier by own capture_rate,
+    #    look up min/max via evolution chain (chain JSON cached by id).
+    declare -A chain_cache=()
+    local flat='[]'
     local sp
     while IFS= read -r sp; do
         [[ -z "$sp" ]] && continue
         local spec
         spec="$(pokeapi_get "pokemon-species/$sp" 2>/dev/null)" || continue
-        local is_leg is_myth cr
+        local is_leg is_myth
         is_leg="$(jq -r '.is_legendary // false' <<< "$spec")"
         is_myth="$(jq -r '.is_mythical // false' <<< "$spec")"
         [[ "$is_leg" == "true" || "$is_myth" == "true" ]] && continue
+
+        local cr tier
         cr="$(jq -r '.capture_rate // 45' <<< "$spec")"
-        local tier tier_idx
         tier="$(encounter_tier_for_capture_rate "$cr")"
-        tier_idx=-1
-        local i
-        for i in 0 1 2 3; do
-            [[ "${ENCOUNTER_TIERS[$i]}" == "$tier" ]] && tier_idx=$i && break
-        done
-        base="$(jq -c --arg sp "$sp" --argjson ti "$tier_idx" \
-            '. + [{species:$sp, tier_idx:$ti}]' <<< "$base")"
+
+        local emin=5 emax=15
+        local chain_url
+        chain_url="$(jq -r '.evolution_chain.url // empty' <<< "$spec")"
+        if [[ -n "$chain_url" && "$chain_url" != "null" ]]; then
+            local chain_id chain
+            chain_id="$(basename -- "${chain_url%/}")"
+            chain="${chain_cache[$chain_id]:-}"
+            if [[ -z "$chain" ]]; then
+                chain="$(pokeapi_get "evolution-chain/$chain_id" 2>/dev/null)" || chain=""
+                [[ -n "$chain" ]] && chain_cache[$chain_id]="$chain"
+            fi
+            if [[ -n "$chain" ]]; then
+                local stages entry stage ml
+                stages="$(encounter_walk_chain "$chain")"
+                entry="$(jq -c --arg sp "$sp" '.[] | select(.species==$sp)' <<< "$stages")"
+                if [[ -n "$entry" ]]; then
+                    stage="$(jq -r '.stage_idx' <<< "$entry")"
+                    ml="$(jq -r '.min_level_evo // empty' <<< "$entry")"
+                    if [[ -n "$ml" && "$ml" != "null" ]]; then
+                        emin="$ml"; emax=$((ml + 10))
+                    elif (( stage > 0 )); then
+                        emin=$((5 + 15 * stage)); emax=$((emin + 10))
+                    fi
+                fi
+            fi
+        fi
+
+        flat="$(jq -c --arg sp "$sp" --argjson mn "$emin" --argjson mx "$emax" --arg tier "$tier" \
+            '. + [{species:$sp, min:$mn, max:$mx, tier:$tier}]' <<< "$flat")"
     done < <(jq -r '.[]' <<< "$species_union")
 
-    # 3. Walk evolution chain per root species: expand stages, shift tier.
-    local flat='[]'
-    local n
-    n="$(jq 'length' <<< "$base")"
-    local seen_chains='[]'
-    for (( i=0; i<n; i++ )); do
-        local entry sp tier_idx
-        entry="$(jq -c ".[$i]" <<< "$base")"
-        sp="$(jq -r '.species' <<< "$entry")"
-        tier_idx="$(jq -r '.tier_idx' <<< "$entry")"
-
-        local spec chain_url chain_id
-        spec="$(pokeapi_get "pokemon-species/$sp" 2>/dev/null)" || continue
-        chain_url="$(jq -r '.evolution_chain.url' <<< "$spec")"
-        if [[ -z "$chain_url" || "$chain_url" == "null" ]]; then
-            flat="$(jq -c --arg s "$sp" --argjson t "$tier_idx" \
-                '. + [{species:$s, min:5, max:15, tier_idx:$t}]' <<< "$flat")"
-            continue
-        fi
-        chain_id="$(basename -- "${chain_url%/}")"
-
-        if jq -e --arg c "$chain_id" 'index($c)' <<< "$seen_chains" > /dev/null; then
-            continue
-        fi
-        seen_chains="$(jq -c --arg c "$chain_id" '. + [$c]' <<< "$seen_chains")"
-
-        local chain stages
-        chain="$(pokeapi_get "evolution-chain/$chain_id" 2>/dev/null)" || continue
-        stages="$(encounter_walk_chain "$chain")"
-
-        local stage_entries
-        stage_entries="$(jq -c \
-            --argjson root_idx "$tier_idx" --arg anchor "$sp" --argjson stages "$stages" '
-            ($stages | map(.species) | index($anchor)) as $anchor_stage
-            | $stages
-            | sort_by(.stage_idx)
-            | reduce .[] as $s (
-                {expanded: [], by_idx: {}};
-                ($s.stage_idx - ($anchor_stage // 0)) as $offset
-                | (if $s.stage_idx == 0 then 5 else
-                       (.by_idx[(($s.stage_idx - 1)|tostring)] // 15) + 1
-                   end) as $emin_pre
-                | (if $s.min_level_evo != null and $s.stage_idx > 0 then
-                       $s.min_level_evo
-                   else $emin_pre end) as $emin
-                | ($emin + 10) as $emax
-                | ([$root_idx + $offset, 3] | map(if . < 0 then 0 else . end) | min) as $tidx
-                | .expanded += [{
-                    species: $s.species, min: $emin, max: $emax, tier_idx: $tidx
-                  }]
-                | .by_idx[($s.stage_idx|tostring)] = $emax
-              )
-            | .expanded
-        ' <<< 'null')"
-        flat="$(jq -c --argjson e "$stage_entries" '. + $e' <<< "$flat")"
-    done
-
-    # 4. Collision dedup: same species in multiple tiers -> keep min tier_idx.
-    local deduped
-    deduped="$(jq -c '
-        group_by(.species)
-        | map(
-            (min_by(.tier_idx)) as $win
-            | {
-                species: $win.species,
-                min: ([.[] | select(.tier_idx == $win.tier_idx) | .min] | min),
-                max: ([.[] | select(.tier_idx == $win.tier_idx) | .max] | max),
-                tier_idx: $win.tier_idx
-              }
-          )
-    ' <<< "$flat")"
-
-    # 5. Bucket into tier arrays.
+    # 3. Bucket into tier arrays.
     local tiered
     tiered="$(jq -c --argjson tiers '["common","uncommon","rare","very_rare"]' '
         ($tiers | map({(.) : []}) | add) as $empty
         | reduce .[] as $e ($empty;
-            ($tiers[$e.tier_idx]) as $name
-            | .[$name] += [{species: $e.species, min: $e.min, max: $e.max}]
+            .[$e.tier] += [{species: $e.species, min: $e.min, max: $e.max}]
           )
-    ' <<< "$deduped")"
+    ' <<< "$flat")"
 
-    # 6. Derive berries by natural_gift_type intersection with biome.types.
+    # 4. Derive berries by natural_gift_type intersection with biome.types.
     local berries='[]' berry_list
     berry_list="$(pokeapi_get "berry?limit=100" | jq -r '.results[].name')"
     local types_array
@@ -560,8 +544,16 @@ encounter_roll_pokemon() {
     lo="$(jq -r '.min'     <<< "$entry")"
     hi="$(jq -r '.max'     <<< "$entry")"
 
+    # Pick a random variety. For most species variety == bare species name;
+    # for forme-bearing ones (wormadam, lycanroc, oricorio, …) this rolls
+    # between the available formes. /pokemon and ability/move fetches use the
+    # variety. The encounter's species field stays bare.
+    local variety
+    variety="$(encounter_pick_variety "$sp")"
+    [[ -z "$variety" || "$variety" == "null" ]] && variety="$sp"
+
     local poke
-    poke="$(pokeapi_get "pokemon/$sp")" || return 1
+    poke="$(pokeapi_get "pokemon/$variety")" || return 1
     local dex_id
     dex_id="$(jq -r '.id' <<< "$poke")"
     local sprite_url
@@ -584,12 +576,12 @@ encounter_roll_pokemon() {
     mods="$(encounter_nature_mods "$nature")" || return 1
 
     local ability_obj ability is_hidden
-    ability_obj="$(encounter_roll_ability "$sp")" || return 1
+    ability_obj="$(encounter_roll_ability "$variety")" || return 1
     ability="$(jq -r '.name' <<< "$ability_obj")"
     is_hidden="$(jq -r 'if .is_hidden then 1 else 0 end' <<< "$ability_obj")"
 
     local moves_json
-    moves_json="$(encounter_roll_moves "$sp" "$level")" || return 1
+    moves_json="$(encounter_roll_moves "$variety" "$level")" || return 1
 
     local gender shiny held_berry
     gender="$(encounter_roll_gender "$sp")" || return 1
