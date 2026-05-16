@@ -52,9 +52,14 @@ Commands:
   items [filters]         Pretty list of item drops
   stats                   Aggregates: totals, shinies, by biome, top species
   current                 Show current biome + counts
-  rebuild-pool [biome]    Force pool rebuild (one or all; type-derived)
+  rebuild-pool [biome] [--yes]
+                          Force pool rebuild (one or all; type-derived).
+                          All-mode prompts unless --yes is given.
   switch-biome <biome>    Close active session, open new session in <biome>
-  clean [--yes]           Purge pool cache + legacy biome-areas dir
+  clean <pools|db|all> [--yes]
+                          pools = wipe pool cache + legacy biome-areas/
+                          db    = wipe sqlite DB at $POKIDLE_DB_PATH
+                          all   = both. Prompts unless --yes is given.
   setup [--enable]        Install user systemd unit + config dirs
   uninstall               Disable + remove unit (DB/cache untouched)
   status                  systemctl status + last tick + current biome
@@ -642,7 +647,7 @@ pokidle_tick_legendary() {
     fi
 
     local species enc sprite_url sprite_path=""
-    species="$(legendary_roll_species)"
+    species="$(legendary_roll_species_for_biome "$biome")" || return 1
     enc="$(legendary_build_encounter "$species" "$biome")" || return 1
     sprite_url="$(jq -r '.sprite_url // ""' <<< "$enc")"
     if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
@@ -821,24 +826,73 @@ pokidle_current() {
 }
 
 pokidle_clean() {
-    local force=0
-    [[ "${1-}" == "--yes" ]] && force=1
+    local force=0 target=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yes|-y)        force=1; shift ;;
+            pools|db|all)    target="$1"; shift ;;
+            -*)              printf 'clean: unknown flag %s\n' "$1" >&2; return 2 ;;
+            *)               printf 'clean: unknown target %s\n' "$1" >&2; return 2 ;;
+        esac
+    done
+    if [[ -z "$target" ]]; then
+        printf 'usage: pokidle clean <pools|db|all> [--yes]\n' >&2
+        return 2
+    fi
+
+    local prompt
+    case "$target" in
+        pools) prompt="Wipe $POKIDLE_CACHE_DIR/{pools,biome-areas}?" ;;
+        db)    prompt="Wipe $POKIDLE_DB_PATH?" ;;
+        all)   prompt="Wipe $POKIDLE_CACHE_DIR/{pools,biome-areas} AND $POKIDLE_DB_PATH?" ;;
+    esac
+
     if (( ! force )); then
-        printf 'Wipe %s/{pools,biome-areas}? [y/N] ' "$POKIDLE_CACHE_DIR"
+        printf '%s [y/N] ' "$prompt"
         local ans; read -r ans
         [[ "$ans" =~ ^[Yy]$ ]] || { printf 'aborted\n'; return 0; }
     fi
-    rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
-    printf 'cleaned: pools/ biome-areas/\n'
+
+    case "$target" in
+        pools)
+            rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
+            printf 'cleaned: pools/ biome-areas/\n'
+            ;;
+        db)
+            rm -f -- "$POKIDLE_DB_PATH"
+            printf 'cleaned: %s\n' "$POKIDLE_DB_PATH"
+            ;;
+        all)
+            rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
+            rm -f -- "$POKIDLE_DB_PATH"
+            printf 'cleaned: pools/ biome-areas/ + %s\n' "$POKIDLE_DB_PATH"
+            ;;
+    esac
 }
 
 pokidle_rebuild_pool() {
-    local target="${1-}"
+    local force=0 target=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yes|-y) force=1; shift ;;
+            -*) printf 'rebuild-pool: unknown flag %s\n' "$1" >&2; return 2 ;;
+            *)  target="$1"; shift ;;
+        esac
+    done
+
     local biomes
     if [[ -n "$target" ]]; then
         biomes="$target"
     else
         biomes="$(biome_ids)"
+        local n
+        n="$(printf '%s\n' "$biomes" | grep -c .)"
+        if (( ! force )); then
+            printf 'Rebuild all %s pools (wipes %s/pools first)? [y/N] ' \
+                "$n" "$POKIDLE_CACHE_DIR"
+            local ans; read -r ans
+            [[ "$ans" =~ ^[Yy]$ ]] || { printf 'aborted\n'; return 0; }
+        fi
         rm -rf -- "$POKIDLE_CACHE_DIR/pools"
     fi
     local b

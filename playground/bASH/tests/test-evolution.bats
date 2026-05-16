@@ -148,7 +148,7 @@ setup() {
     load_lib encounter
     db_init
     sqlite3 "$POKIDLE_DB_PATH" "
-        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', 1700000000);
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('orchard', 1700000000);
         INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
             nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
             iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
@@ -193,8 +193,8 @@ setup() {
     cp "$REPO_ROOT/config/biomes.json" "$POKIDLE_CONFIG_DIR/biomes.json"
     export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
 
-    cat > "$POKIDLE_CACHE_DIR/pools/plain.json" <<'EOF'
-{"biome":"plain","schema":2,"tiers":{
+    cat > "$POKIDLE_CACHE_DIR/pools/orchard.json" <<'EOF'
+{"biome":"orchard","schema":2,"tiers":{
   "common":[{"species":"zigzagoon","min":3,"max":5}],
   "uncommon":[],"rare":[],"very_rare":[]
 }}
@@ -207,7 +207,7 @@ EOF
     now=$((mon_ts + 86400))
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     sqlite3 "$POKIDLE_DB_PATH" "
-        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', $mon_ts);
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('orchard', $mon_ts);
         INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
             nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
             iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,
@@ -264,7 +264,7 @@ EOF
     load_lib encounter
     db_init
     sqlite3 "$POKIDLE_DB_PATH" "
-        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('plain', 1700000000);
+        INSERT INTO biome_sessions(biome_id, started_at) VALUES ('orchard', 1700000000);
         INSERT INTO encounters(session_id, encountered_at, species, dex_id, level,
             nature, ability, is_hidden_ability, gender, shiny, moves_json, friendship,
             iv_hp, iv_atk, iv_def, iv_spa, iv_spd, iv_spe,

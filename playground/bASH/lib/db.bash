@@ -22,14 +22,6 @@ db_init() {
     fi
     mkdir -p -- "$(dirname -- "$POKIDLE_DB_PATH")"
     sqlite3 "$POKIDLE_DB_PATH" < "$schema"
-    # Idempotent backfill for legacy DBs (encounters table existed before
-    # the friendship column was added).
-    if ! sqlite3 "$POKIDLE_DB_PATH" \
-            "SELECT 1 FROM pragma_table_info('encounters') WHERE name='friendship';" \
-            | grep -q 1; then
-        sqlite3 "$POKIDLE_DB_PATH" \
-            "ALTER TABLE encounters ADD COLUMN friendship INTEGER NOT NULL DEFAULT 70;"
-    fi
 }
 
 db_exec() {

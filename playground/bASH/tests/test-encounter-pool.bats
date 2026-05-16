@@ -62,18 +62,30 @@ setup() {
     [ "$(encounter_tier_for_pct 0)"   = "very_rare" ]
 }
 
-@test "encounter_tier_shift: shifts one step rarer per stage and clamps" {
-    [ "$(encounter_tier_shift common 0)"    = "common" ]
-    [ "$(encounter_tier_shift common 1)"    = "uncommon" ]
-    [ "$(encounter_tier_shift common 2)"    = "rare" ]
-    [ "$(encounter_tier_shift common 3)"    = "very_rare" ]
-    [ "$(encounter_tier_shift common 4)"    = "very_rare" ]
-    [ "$(encounter_tier_shift uncommon 1)"  = "rare" ]
-    [ "$(encounter_tier_shift rare 1)"      = "very_rare" ]
-    [ "$(encounter_tier_shift very_rare 2)" = "very_rare" ]
+@test "encounter_species_for_name: bare species passes through unchanged" {
+    [ "$(encounter_species_for_name treecko)" = "treecko" ]
+    [ "$(encounter_species_for_name caterpie)" = "caterpie" ]
 }
 
-@test "build_pool: type-derived produces tier shape, includes evolution stages" {
+@test "encounter_species_for_name: variety-suffixed name resolves to bare species" {
+    # /pokemon-species/shaymin-land 404s, fallback hits /pokemon/shaymin-land
+    # whose .species.name is "shaymin".
+    [ "$(encounter_species_for_name shaymin-land)" = "shaymin" ]
+}
+
+@test "encounter_pick_variety: returns a name from .varieties[]" {
+    # shaymin fixture has two varieties — output must be one of them.
+    local v
+    v="$(encounter_pick_variety shaymin)"
+    [[ "$v" == "shaymin-land" || "$v" == "shaymin-sky" ]]
+}
+
+@test "encounter_pick_variety: falls back to species name when /pokemon-species fails" {
+    # No fixture for "made-up-species" → pokeapi_get returns 1 → fallback.
+    [ "$(encounter_pick_variety made-up-species)" = "made-up-species" ]
+}
+
+@test "build_pool: tiers each species by own capture_rate" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
     export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR
@@ -93,20 +105,81 @@ EOF
     local has_tiers
     has_tiers="$(jq 'has("tiers") and (.tiers | has("common") and has("uncommon") and has("rare") and has("very_rare"))' <<< "$output")"
     [ "$has_tiers" = "true" ]
-    local cat_tier
-    cat_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("caterpie")) | .key' <<< "$output")"
-    [ "$cat_tier" = "common" ]
-    local meta_tier
-    meta_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("metapod")) | .key' <<< "$output")"
-    [ "$meta_tier" = "uncommon" ]
-    local tre_tier
-    tre_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("treecko")) | .key' <<< "$output")"
-    [ "$tre_tier" = "rare" ]
-    local grov_tier scep_tier
-    grov_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("grovyle")) | .key' <<< "$output")"
-    [ "$grov_tier" = "very_rare" ]
-    scep_tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("sceptile")) | .key' <<< "$output")"
-    [ "$scep_tier" = "very_rare" ]
+
+    # capture_rate 255 → common; capture_rate 45 → rare. No tier-shift by stage.
+    tier_of() {
+        jq -r --arg sp "$1" '.tiers | to_entries[] | select(.value | map(.species) | index($sp)) | .key' <<< "$output"
+    }
+    [ "$(tier_of caterpie)"   = "common"  ]
+    [ "$(tier_of metapod)"    = "common"  ]
+    [ "$(tier_of butterfree)" = "rare"    ]
+    [ "$(tier_of treecko)"    = "rare"    ]
+    [ "$(tier_of grovyle)"    = "rare"    ]
+    [ "$(tier_of sceptile)"   = "rare"    ]
+}
+
+@test "build_pool: variety-suffixed names from /type collapse to bare species" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
+    mkdir -p "$POKIDLE_CONFIG_DIR"
+    cat > "$POKIDLE_CONFIG_DIR/biomes.json" <<EOF
+{ "biomes": [
+    { "id": "testbiome", "label": "Test", "types": ["grass", "bug"] }
+] }
+EOF
+    load_lib biome
+    load_lib encounter
+    stub_pokeapi
+    run encounter_build_pool testbiome
+    [ "$status" -eq 0 ]
+    # /type/bug returns wormadam-{plant,sandy,trash}; all collapse to bare "wormadam".
+    local has_bare has_variety
+    has_bare="$(jq '[.tiers[][] | .species] | index("wormadam") != null' <<< "$output")"
+    has_variety="$(jq '[.tiers[][] | .species] | any(. == "wormadam-plant" or . == "wormadam-sandy" or . == "wormadam-trash")' <<< "$output")"
+    [ "$has_bare"    = "true"  ]
+    [ "$has_variety" = "false" ]
+    # capture_rate 45 → rare bucket.
+    local tier
+    tier="$(jq -r '.tiers | to_entries[] | select(.value | map(.species) | index("wormadam")) | .key' <<< "$output")"
+    [ "$tier" = "rare" ]
+}
+
+@test "build_pool: min/max levels come from species' own evolution_details" {
+    POKIDLE_REPO_ROOT="$REPO_ROOT"
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    POKIDLE_CONFIG_DIR="$BATS_TMPDIR/cfg.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
+    mkdir -p "$POKIDLE_CONFIG_DIR"
+    cat > "$POKIDLE_CONFIG_DIR/biomes.json" <<EOF
+{ "biomes": [
+    { "id": "testbiome", "label": "Test", "types": ["grass", "bug"] }
+] }
+EOF
+    load_lib biome
+    load_lib encounter
+    stub_pokeapi
+    run encounter_build_pool testbiome
+    [ "$status" -eq 0 ]
+
+    entry_of() {
+        jq -c --arg sp "$1" '.tiers | to_entries[] | .value[] | select(.species==$sp)' <<< "$output"
+    }
+    # Roots: 5-15.
+    [ "$(entry_of caterpie | jq -r '.min')" = "5"  ]
+    [ "$(entry_of caterpie | jq -r '.max')" = "15" ]
+    [ "$(entry_of treecko  | jq -r '.min')" = "5"  ]
+    [ "$(entry_of treecko  | jq -r '.max')" = "15" ]
+    # Evolved (level-up): min = own evolution_details.min_level, max = min+10.
+    [ "$(entry_of metapod    | jq -r '.min')" = "7"  ]
+    [ "$(entry_of metapod    | jq -r '.max')" = "17" ]
+    [ "$(entry_of butterfree | jq -r '.min')" = "10" ]
+    [ "$(entry_of butterfree | jq -r '.max')" = "20" ]
+    [ "$(entry_of grovyle    | jq -r '.min')" = "16" ]
+    [ "$(entry_of grovyle    | jq -r '.max')" = "26" ]
+    [ "$(entry_of sceptile   | jq -r '.min')" = "36" ]
+    [ "$(entry_of sceptile   | jq -r '.max')" = "46" ]
 }
 
 @test "encounter_pool_save writes schema:3 and tiers wrapper" {

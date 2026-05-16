@@ -65,8 +65,22 @@ source_pokidle_lib() {
     POKIDLE_LEGENDARY_CHANCE=0
     POKIDLE_LEGENDARY_INTERVAL=86400
     POKIDLE_CONFIG_DIR="$REPO_ROOT/config"
-    export POKIDLE_TICK_FAST POKIDLE_NO_NOTIFY POKIDLE_LEGENDARY_CHANCE POKIDLE_LEGENDARY_INTERVAL POKIDLE_CONFIG_DIR
+    POKIDLE_CACHE_DIR="$BATS_TMPDIR/cache.$$"
+    mkdir -p "$POKIDLE_CACHE_DIR/pools"
+    # Seed a pool for at least one biome so biome rotation can pick.
+    load_lib biome
+    local id
+    id="$(biome_ids | head -n 1)"
+    jq -n --arg b "$id" '
+        {biome: $b, schema: 2, tiers: {
+            common: [range(0; 50) | {species: ("s\(.))"), min: 5, max: 8}],
+            uncommon: [], rare: [], very_rare: []
+        }}
+    ' > "$POKIDLE_CACHE_DIR/pools/$id.json"
+    export POKIDLE_TICK_FAST POKIDLE_NO_NOTIFY POKIDLE_LEGENDARY_CHANCE \
+           POKIDLE_LEGENDARY_INTERVAL POKIDLE_CONFIG_DIR POKIDLE_CACHE_DIR
     timeout 5 "$REPO_ROOT/pokidle" daemon >/dev/null 2>&1 || true
+    rm -rf "$POKIDLE_CACHE_DIR"
     local val
     val="$(sqlite3 "$POKIDLE_DB_PATH" \
         "SELECT value FROM daemon_state WHERE key='last_legendary_tick_target';")"
