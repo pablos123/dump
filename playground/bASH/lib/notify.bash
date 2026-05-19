@@ -62,9 +62,8 @@ notify_pokemon() {
     biome_label="$(jq -r '.biome_label // ""' <<< "$enc")"
     is_legendary="$(jq -r '.is_legendary // false' <<< "$enc")"
 
-    local stats moves
-    stats="$(jq -r '.stats | "HP \(.[0])  Atk \(.[1])  Def \(.[2])  SpA \(.[3])  SpD \(.[4])  Spe \(.[5])"' <<< "$enc")"
-    moves="$(jq -r '.moves | join(", ")' <<< "$enc")"
+    local moves
+    moves="$(jq -r '.moves | map("• \(.)") | join("\n")' <<< "$enc")"
 
     local sp_title nat_title abil_title
     sp_title="$(_titlecase_words "$species")"
@@ -88,8 +87,8 @@ notify_pokemon() {
 
     local title body icon
     title="${prefix}Lv.$level $sp_title"
-    body="$biome_label  ·  $nat_title  ·  $abil_title"$'\n'"$stats"$'\n'"Moves: $moves"
-    [[ -n "$held" && "$held" != "null" ]] && body+=$'\n'"Held: $held"
+    body="$nat_title  ·  $abil_title"$'\n\n'"$moves"
+    [[ -n "$held" && "$held" != "null" ]] && body+=$'\n\n'"Held: $held"
 
     icon="$(jq -r '.sprite_path // ""' <<< "$enc")"
     [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path encounter)"
@@ -147,7 +146,7 @@ notify_item() {
     [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path item)"
     local title body
     title="Found $(_titlecase_words "$name")"
-    body="$biome_label  ·  held-item"
+    body=""
     _emit "$title" "$body" "low" "$icon"
 }
 
@@ -163,8 +162,8 @@ notify_evolution() {
     local from_t to_t title body
     from_t="$(_titlecase_words "$from")"
     to_t="$(_titlecase_words "$to")"
-    title="$from_t evolved into $to_t"
-    body="$biome_label"
+    title="$from_t evolved into $to_t!"
+    body=""
 
     _emit "$title" "$body" "normal" "$icon"
     _play_sound encounter
@@ -182,7 +181,7 @@ notify_level() {
     local sp_title title body
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title leveled $from → $to"
-    body="$biome_label"
+    body=""
     _emit "$title" "$body" "low" "$(_notify_icon_path level-up)"
 }
 
@@ -191,6 +190,6 @@ notify_friendship() {
     local sp_title title body
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title friendship $from → $to"
-    body="$biome_label"
+    body=""
     _emit "$title" "$body" "low" "$(_notify_icon_path friendship)"
 }
