@@ -24,7 +24,7 @@ setup() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"SHINY"* ]]
     [[ "$output" == *"Sceptile"* ]]
-    [[ "$output" == *"Cave"* ]]
+    [[ "$output" == *"• leaf-blade"* ]]
     [[ "$output" == *"sitrus"* ]]
 }
 
@@ -49,7 +49,46 @@ setup() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Found"* ]]
     [[ "$output" == *"Everstone"* ]]
-    [[ "$output" == *"Cave"* ]]
+}
+
+@test "notify_evolution: title ends with !" {
+    local evo='{"from":"charmander","to":"charmeleon","biome_label":"Volcano","sprite_path":""}'
+    run notify_evolution "$evo"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"evolved into Charmeleon!"* ]]
+}
+
+@test "notify_level / notify_friendship: body empty (biome dropped)" {
+    run notify_level pikachu 41 42 "Meadow"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Pikachu leveled 41 → 42"* ]]
+    [[ "$output" != *"Meadow"* ]]
+    run notify_friendship eevee 100 105 "Farm"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Eevee friendship 100 → 105"* ]]
+    [[ "$output" != *"Farm"* ]]
+}
+
+@test "_play_sound: POKIDLE_SOUND=never short-circuits every kind" {
+    POKIDLE_SOUND=never
+    for kind in encounter shiny legendary item biome level friendship; do
+        run _play_sound "$kind"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "_play_sound: POKIDLE_NO_SOUND=1 short-circuits every kind" {
+    POKIDLE_NO_SOUND=1
+    for kind in encounter shiny legendary item biome level friendship; do
+        run _play_sound "$kind"
+        [ "$status" -eq 0 ]
+    done
+}
+
+@test "_play_sound: unknown kind returns 0 silently" {
+    run _play_sound bogus
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }
 
 @test "notify_biome_change: dry-run prints title" {

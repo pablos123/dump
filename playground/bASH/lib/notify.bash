@@ -98,33 +98,41 @@ notify_pokemon() {
 _play_sound() {
     local kind="$1"
     [[ "${POKIDLE_NO_SOUND:-0}" == "1" ]] && return 0
+    local policy="${POKIDLE_SOUND:-shiny}"
+    [[ "$policy" == "never" ]] && return 0
+
     local sounds_dir="$POKIDLE_DATA_DIR/sounds"
     local file=""
     case "$kind" in
         legendary)
-            # Legendary plays unconditionally; falls back shiny → encounter.
+            # On 'shiny' (default) or 'always'. Falls back shiny → encounter.
             file="${POKIDLE_SOUND_LEGENDARY:-$sounds_dir/legendary.ogg}"
             [[ -f "$file" ]] || file="${POKIDLE_SOUND_SHINY:-$sounds_dir/shiny.ogg}"
             [[ -f "$file" ]] || file="${POKIDLE_SOUND_ENCOUNTER:-$sounds_dir/encounter.ogg}"
             ;;
         shiny)
             file="${POKIDLE_SOUND_SHINY:-$sounds_dir/shiny.ogg}"
-            case "${POKIDLE_SOUND:-shiny}" in
-                shiny|always) ;;
-                *) return 0 ;;
-            esac
             ;;
         encounter)
+            [[ "$policy" == "always" ]] || return 0
             file="${POKIDLE_SOUND_ENCOUNTER:-$sounds_dir/encounter.ogg}"
-            case "${POKIDLE_SOUND:-shiny}" in
-                always) ;;
-                *) return 0 ;;
-            esac
             ;;
-        item)       file="${POKIDLE_SOUND_ITEM:-$sounds_dir/item.ogg}" ;;
-        biome)      file="${POKIDLE_SOUND_BIOME:-$sounds_dir/biome.ogg}" ;;
-        level)      file="${POKIDLE_SOUND_LEVEL:-$sounds_dir/level.ogg}" ;;
-        friendship) file="${POKIDLE_SOUND_FRIENDSHIP:-$sounds_dir/friendship.ogg}" ;;
+        item)
+            [[ "$policy" == "always" ]] || return 0
+            file="${POKIDLE_SOUND_ITEM:-$sounds_dir/item.ogg}"
+            ;;
+        biome)
+            [[ "$policy" == "always" ]] || return 0
+            file="${POKIDLE_SOUND_BIOME:-$sounds_dir/biome.ogg}"
+            ;;
+        level)
+            [[ "$policy" == "always" ]] || return 0
+            file="${POKIDLE_SOUND_LEVEL:-$sounds_dir/level.ogg}"
+            ;;
+        friendship)
+            [[ "$policy" == "always" ]] || return 0
+            file="${POKIDLE_SOUND_FRIENDSHIP:-$sounds_dir/friendship.ogg}"
+            ;;
         *) return 0 ;;
     esac
     [[ -f "$file" ]] || return 0

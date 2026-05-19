@@ -31,8 +31,22 @@ teardown() {
     [ -f "$XDG_CONFIG_HOME/pokidle/biomes.json" ]
     [ -f "$XDG_CONFIG_HOME/systemd/user/pokidle.service" ]
     [ -L "$HOME/.local/bin/pokidle" ]
+    [ -L "$XDG_DATA_HOME/pokidle/biomes" ]
+    [ -L "$XDG_DATA_HOME/pokidle/notify" ]
+    [ -L "$XDG_DATA_HOME/pokidle/sounds" ]
+    [ "$(readlink "$XDG_DATA_HOME/pokidle/sounds")" = "$REPO_ROOT/share/sounds" ]
     grep -q 'daemon-reload' "$HOME/systemctl.log"
     ! grep -q 'enable --now' "$HOME/systemctl.log"
+}
+
+@test "pokidle uninstall removes the asset symlinks" {
+    "$REPO_ROOT/pokidle" setup
+    [ -L "$XDG_DATA_HOME/pokidle/biomes" ]
+    run "$REPO_ROOT/pokidle" uninstall
+    [ "$status" -eq 0 ]
+    [ ! -L "$XDG_DATA_HOME/pokidle/biomes" ]
+    [ ! -L "$XDG_DATA_HOME/pokidle/notify" ]
+    [ ! -L "$XDG_DATA_HOME/pokidle/sounds" ]
 }
 
 @test "pokidle setup --enable also enables the unit" {

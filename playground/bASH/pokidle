@@ -946,6 +946,21 @@ pokidle_setup() {
         esac
     done
 
+    # 0. Dependency check (warn-only).
+    local req opt missing_req=()
+    for req in jq curl sqlite3 notify-send awk; do
+        command -v "$req" >/dev/null || missing_req+=("$req")
+    done
+    if (( ${#missing_req[@]} > 0 )); then
+        printf 'setup: missing required commands: %s\n' "${missing_req[*]}" >&2
+        printf 'setup: install them via your package manager and re-run setup\n' >&2
+        return 1
+    fi
+    for opt in paplay aplay ffmpeg catimg; do
+        command -v "$opt" >/dev/null || \
+            printf 'setup: optional dep missing: %s (some features will silently skip)\n' "$opt"
+    done
+
     # 1. Config dir + biomes.json
     mkdir -p -- "$POKIDLE_CONFIG_DIR"
     if (( force )) || [[ ! -f "$POKIDLE_CONFIG_DIR/biomes.json" ]]; then
