@@ -956,6 +956,18 @@ pokidle_setup() {
     # 2. Data + cache dirs
     mkdir -p -- "$POKIDLE_DATA_DIR" "$POKIDLE_CACHE_DIR"
 
+    # 2b. Asset symlinks (icons + sounds) into data dir
+    local asset
+    for asset in biomes notify sounds; do
+        local src="$POKIDLE_REPO_ROOT/share/$asset"
+        local dst="$POKIDLE_DATA_DIR/$asset"
+        [[ -d "$src" ]] || continue
+        if (( force )) || [[ ! -e "$dst" ]]; then
+            ln -sfn -- "$src" "$dst"
+            printf 'symlinked %s -> %s\n' "$dst" "$src"
+        fi
+    done
+
     # 3. Symlink pokidle into ~/.local/bin
     local bindir="$HOME/.local/bin"
     mkdir -p -- "$bindir"
@@ -996,6 +1008,11 @@ pokidle_uninstall() {
     systemctl --user disable --now pokidle.service 2>/dev/null || true
     rm -f -- "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/pokidle.service"
     rm -f -- "$HOME/.local/bin/pokidle"
+    local asset
+    for asset in biomes notify sounds; do
+        local dst="$POKIDLE_DATA_DIR/$asset"
+        [[ -L "$dst" ]] && rm -f -- "$dst"
+    done
     systemctl --user daemon-reload || true
     printf 'uninstalled. Config (%s), DB (%s), cache (%s) left intact.\n' \
         "$POKIDLE_CONFIG_DIR" "$POKIDLE_DB_PATH" "$POKIDLE_CACHE_DIR"
