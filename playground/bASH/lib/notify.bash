@@ -20,16 +20,14 @@ _titlecase_words() {
 _biome_icon_path() {
     local id="$1"
     [[ -n "$id" ]] || return 0
-    local base="${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/biomes"
-    local p="$base/$id.png"
+    local p="$POKIDLE_DATA_DIR/biomes/$id.png"
     [[ -f "$p" ]] && printf '%s' "$p"
 }
 
 _notify_icon_path() {
     local name="$1"
     [[ -n "$name" ]] || return 0
-    local base="${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/notify"
-    local p="$base/$name.png"
+    local p="$POKIDLE_DATA_DIR/notify/$name.png"
     [[ -f "$p" ]] && printf '%s' "$p"
 }
 
@@ -100,38 +98,32 @@ notify_pokemon() {
 _play_sound() {
     local kind="$1"
     [[ "${POKIDLE_NO_SOUND:-0}" == "1" ]] && return 0
+    local sounds_dir="$POKIDLE_DATA_DIR/sounds"
     local file=""
     case "$kind" in
         legendary)
-            file="${POKIDLE_SOUND_LEGENDARY:-${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/sounds/legendary.ogg}"
-            # Legendary sound plays unconditionally (ignores POKIDLE_SOUND policy).
+            # Legendary plays unconditionally; falls back shiny → encounter.
+            file="${POKIDLE_SOUND_LEGENDARY:-$sounds_dir/legendary.ogg}"
+            [[ -f "$file" ]] || file="${POKIDLE_SOUND_SHINY:-$sounds_dir/shiny.ogg}"
+            [[ -f "$file" ]] || file="${POKIDLE_SOUND_ENCOUNTER:-$sounds_dir/encounter.ogg}"
             ;;
         shiny)
-            file="${POKIDLE_SOUND_SHINY:-${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/sounds/shiny.ogg}"
-            local policy="${POKIDLE_SOUND:-shiny}"
-            case "$policy" in
-                never) return 0 ;;
+            file="${POKIDLE_SOUND_SHINY:-$sounds_dir/shiny.ogg}"
+            case "${POKIDLE_SOUND:-shiny}" in
                 shiny|always) ;;
                 *) return 0 ;;
             esac
             ;;
         encounter)
-            file="${POKIDLE_SOUND_ENCOUNTER:-${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/sounds/encounter.ogg}"
-            local policy="${POKIDLE_SOUND:-shiny}"
-            case "$policy" in
-                never|shiny) return 0 ;;
+            file="${POKIDLE_SOUND_ENCOUNTER:-$sounds_dir/encounter.ogg}"
+            case "${POKIDLE_SOUND:-shiny}" in
                 always) ;;
                 *) return 0 ;;
             esac
             ;;
         *) return 0 ;;
     esac
-    if [[ -n "$file" && ! -f "$file" ]] && [[ "$kind" == "legendary" ]]; then
-        # Legendary falls back to shiny then encounter.
-        file="${POKIDLE_SOUND_SHINY:-${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/sounds/shiny.ogg}"
-        [[ -f "$file" ]] || file="${POKIDLE_SOUND_ENCOUNTER:-${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/sounds/encounter.ogg}"
-    fi
-    [[ -n "$file" && -f "$file" ]] || return 0
+    [[ -f "$file" ]] || return 0
     if   command -v paplay >/dev/null; then paplay "$file" >/dev/null 2>&1 &
     elif command -v aplay  >/dev/null; then aplay  -q "$file" >/dev/null 2>&1 &
     fi
