@@ -983,6 +983,35 @@ pokidle_setup() {
         fi
     done
 
+    # 2c. Seed encounter pools from share/pools so first run skips the
+    #     ~2 hour cold rebuild. Copies (not symlinks) so later
+    #     `pokidle rebuild-pool` writes to the cache, not the repo.
+    local ship_pools="$POKIDLE_REPO_ROOT/share/pools"
+    local cache_pools="$POKIDLE_CACHE_DIR/pools"
+    if [[ -d "$ship_pools" ]] && compgen -G "$ship_pools/*.json" > /dev/null; then
+        mkdir -p -- "$cache_pools"
+        local ship_pool seeded=0 skipped=0
+        for ship_pool in "$ship_pools"/*.json; do
+            local name
+            name="$(basename -- "$ship_pool")"
+            local dst="$cache_pools/$name"
+            if [[ -f "$dst" ]] && (( ! force )); then
+                skipped=$((skipped + 1))
+                continue
+            fi
+            local schema
+            schema="$(jq -r '.schema // 0' "$ship_pool")"
+            if [[ "$schema" != "3" ]]; then
+                printf 'setup: skipping %s (schema=%s, expected 3)\n' "$name" "$schema" >&2
+                continue
+            fi
+            cp -- "$ship_pool" "$dst"
+            seeded=$((seeded + 1))
+        done
+        (( seeded > 0 )) && printf 'seeded %d pool(s) into %s\n' "$seeded" "$cache_pools"
+        (( skipped > 0 )) && printf 'kept %d existing pool(s) (use --force to overwrite)\n' "$skipped"
+    fi
+
     # 3. Symlink pokidle into ~/.local/bin
     local bindir="$HOME/.local/bin"
     mkdir -p -- "$bindir"

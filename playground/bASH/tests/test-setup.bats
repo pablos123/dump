@@ -39,6 +39,46 @@ teardown() {
     ! grep -q 'enable --now' "$HOME/systemctl.log"
 }
 
+@test "pokidle setup seeds shipped pools into the cache" {
+    mkdir -p "$REPO_ROOT/share/pools"
+    local fixture="$REPO_ROOT/share/pools/_bats_seed.json"
+    cat > "$fixture" <<'EOF'
+{"biome":"_bats_seed","built_at":"2026-01-01T00:00:00Z","schema":3,
+ "tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[]},
+ "berries":[]}
+EOF
+    run "$REPO_ROOT/pokidle" setup
+    local status_ok=$status
+    rm -f "$fixture"
+    [ "$status_ok" -eq 0 ]
+    [ -f "$XDG_CACHE_HOME/pokidle/pools/_bats_seed.json" ]
+}
+
+@test "pokidle setup skips shipped pool with stale schema" {
+    mkdir -p "$REPO_ROOT/share/pools"
+    local fixture="$REPO_ROOT/share/pools/_bats_stale.json"
+    echo '{"biome":"_bats_stale","schema":1,"tiers":{},"berries":[]}' > "$fixture"
+    run "$REPO_ROOT/pokidle" setup
+    local out=$output status_ok=$status
+    rm -f "$fixture"
+    [ "$status_ok" -eq 0 ]
+    [ ! -f "$XDG_CACHE_HOME/pokidle/pools/_bats_stale.json" ]
+    [[ "$out" == *"schema=1"* ]]
+}
+
+@test "pokidle setup keeps existing cached pool (no --force)" {
+    mkdir -p "$REPO_ROOT/share/pools" "$XDG_CACHE_HOME/pokidle/pools"
+    local fixture="$REPO_ROOT/share/pools/_bats_keep.json"
+    local cached="$XDG_CACHE_HOME/pokidle/pools/_bats_keep.json"
+    echo '{"biome":"_bats_keep","schema":3,"new":1,"tiers":{},"berries":[]}' > "$fixture"
+    echo '{"biome":"_bats_keep","schema":3,"old":1,"tiers":{},"berries":[]}' > "$cached"
+    run "$REPO_ROOT/pokidle" setup
+    local status_ok=$status
+    rm -f "$fixture"
+    [ "$status_ok" -eq 0 ]
+    grep -q '"old":1' "$cached"
+}
+
 @test "pokidle uninstall removes the asset symlinks" {
     "$REPO_ROOT/pokidle" setup
     [ -L "$XDG_DATA_HOME/pokidle/biomes" ]
