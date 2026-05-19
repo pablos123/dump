@@ -249,7 +249,7 @@ _pokidle_announce_biome() {
         pool_size=0
         berry_count=0
     fi
-    notify_biome_change "$label" "$pool_size" "$berry_count"
+    notify_biome_change "$biome" "$label" "$pool_size" "$berry_count"
 }
 
 _pokidle_shutdown() {
@@ -326,8 +326,8 @@ pokidle_tick() {
 
             local enc_with_meta
             enc_with_meta="$(jq -c \
-                --arg label "$label" --arg sp "$sprite_path" '
-                . + {biome_label: $label, sprite_path: $sp}
+                --arg label "$label" --arg sp "$sprite_path" --arg bid "$biome" '
+                . + {biome_label: $label, sprite_path: $sp, biome_id: $bid}
             ' <<< "$enc")"
 
             if (( dry_run == 0 )); then
@@ -359,8 +359,8 @@ pokidle_tick() {
                 [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
             fi
             local item_with_meta
-            item_with_meta="$(jq -c --arg l "$label" --arg sp "$sprite_path" '
-                . + {biome_label: $l, sprite_path: $sp}
+            item_with_meta="$(jq -c --arg l "$label" --arg sp "$sprite_path" --arg bid "$biome" '
+                . + {biome_label: $l, sprite_path: $sp, biome_id: $bid}
             ' <<< "$item_json")"
             if (( dry_run == 0 )); then
                 db_insert_item_drop "$sid" "$(date +%s)" "$item_name" "$sprite_path"
@@ -592,8 +592,8 @@ pokidle_tick_evolve() {
                 "SELECT sprite_path FROM encounters WHERE id=$enc_id;")"
             biome_label="$(biome_get "$biome" | jq -r '.label')"
             notify_obj="$(jq -n --arg from "$species" --arg to "$new_species" \
-                --arg label "$biome_label" --arg sp "$sprite_meta" \
-                '{from:$from, to:$to, biome_label:$label, sprite_path:$sp}')"
+                --arg label "$biome_label" --arg sp "$sprite_meta" --arg bid "$biome" \
+                '{from:$from, to:$to, biome_label:$label, sprite_path:$sp, biome_id:$bid}')"
             notify_evolution "$notify_obj"
         fi
         evolved="$(jq -c \
@@ -659,8 +659,8 @@ pokidle_tick_legendary() {
     local label enc_with_meta
     label="$(biome_get "$biome" | jq -r '.label')"
     enc_with_meta="$(jq -c \
-        --arg label "$label" --arg sp "$sprite_path" '
-        . + {biome_label: $label, sprite_path: $sp}
+        --arg label "$label" --arg sp "$sprite_path" --arg bid "$biome" '
+        . + {biome_label: $label, sprite_path: $sp, biome_id: $bid}
     ' <<< "$enc")"
 
     if (( dry_run == 0 )); then

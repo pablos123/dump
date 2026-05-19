@@ -53,7 +53,7 @@ setup() {
 }
 
 @test "notify_biome_change: dry-run prints title" {
-    run notify_biome_change "Volcano" 42 12
+    run notify_biome_change "volcano" "Volcano" 42 12
     [ "$status" -eq 0 ]
     [[ "$output" == *"Biome changed"* ]]
     [[ "$output" == *"Volcano"* ]]

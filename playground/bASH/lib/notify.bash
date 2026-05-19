@@ -17,6 +17,22 @@ _titlecase_words() {
     printf '%s' "${out% }"
 }
 
+_biome_icon_path() {
+    local id="$1"
+    [[ -n "$id" ]] || return 0
+    local base="${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/biomes"
+    local p="$base/$id.png"
+    [[ -f "$p" ]] && printf '%s' "$p"
+}
+
+_notify_icon_path() {
+    local name="$1"
+    [[ -n "$name" ]] || return 0
+    local base="${POKIDLE_DATA_DIR:-${POKIDLE_REPO_ROOT}/share}/notify"
+    local p="$base/$name.png"
+    [[ -f "$p" ]] && printf '%s' "$p"
+}
+
 _emit() {
     local title="$1"
     local body="$2"
@@ -76,6 +92,7 @@ notify_pokemon() {
     [[ -n "$held" && "$held" != "null" ]] && body+=$'\n'"Held: $held"
 
     icon="$(jq -r '.sprite_path // ""' <<< "$enc")"
+    [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path encounter)"
 
     _emit "$title" "$body" "$urgency" "$icon"
     _play_sound "$sound_kind"
@@ -127,6 +144,7 @@ notify_item() {
     name="$(jq -r '.item' <<< "$item_json")"
     biome_label="$(jq -r '.biome_label // ""' <<< "$item_json")"
     icon="$(jq -r '.sprite_path // ""' <<< "$item_json")"
+    [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path item)"
     local title body
     title="Found $(_titlecase_words "$name")"
     body="$biome_label  ·  held-item"
@@ -140,6 +158,7 @@ notify_evolution() {
     to="$(jq -r '.to' <<< "$evo_json")"
     biome_label="$(jq -r '.biome_label // ""' <<< "$evo_json")"
     icon="$(jq -r '.sprite_path // ""' <<< "$evo_json")"
+    [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path evolution)"
 
     local from_t to_t title body
     from_t="$(_titlecase_words "$from")"
@@ -152,10 +171,10 @@ notify_evolution() {
 }
 
 notify_biome_change() {
-    local label="$1" pool_size="$2" berry_count="$3"
+    local id="$1" label="$2" pool_size="$3" berry_count="$4"
     local title="Biome changed → $label"
     local body="Encounters: $pool_size species, $berry_count berries"
-    _emit "$title" "$body" "low" ""
+    _emit "$title" "$body" "low" "$(_biome_icon_path "$id")"
 }
 
 notify_level() {
@@ -164,7 +183,7 @@ notify_level() {
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title leveled $from → $to"
     body="$biome_label"
-    _emit "$title" "$body" "low" ""
+    _emit "$title" "$body" "low" "$(_notify_icon_path level-up)"
 }
 
 notify_friendship() {
@@ -173,5 +192,5 @@ notify_friendship() {
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title friendship $from → $to"
     body="$biome_label"
-    _emit "$title" "$body" "low" ""
+    _emit "$title" "$body" "low" "$(_notify_icon_path friendship)"
 }
