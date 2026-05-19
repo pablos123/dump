@@ -121,6 +121,10 @@ _play_sound() {
                 *) return 0 ;;
             esac
             ;;
+        item)       file="${POKIDLE_SOUND_ITEM:-$sounds_dir/item.ogg}" ;;
+        biome)      file="${POKIDLE_SOUND_BIOME:-$sounds_dir/biome.ogg}" ;;
+        level)      file="${POKIDLE_SOUND_LEVEL:-$sounds_dir/level.ogg}" ;;
+        friendship) file="${POKIDLE_SOUND_FRIENDSHIP:-$sounds_dir/friendship.ogg}" ;;
         *) return 0 ;;
     esac
     [[ -f "$file" ]] || return 0
@@ -140,6 +144,7 @@ notify_item() {
     title="Found $(_titlecase_words "$name")"
     body=""
     _emit "$title" "$body" "low" "$icon"
+    _play_sound item
 }
 
 notify_evolution() {
@@ -166,6 +171,7 @@ notify_biome_change() {
     local title="Biome changed → $label"
     local body="Encounters: $pool_size species, $berry_count berries"
     _emit "$title" "$body" "low" "$(_biome_icon_path "$id")"
+    _play_sound biome
 }
 
 notify_level() {
@@ -175,6 +181,7 @@ notify_level() {
     title="$sp_title leveled $from → $to"
     body=""
     _emit "$title" "$body" "low" "$(_notify_icon_path level-up)"
+    _play_sound level
 }
 
 notify_friendship() {
@@ -184,4 +191,5 @@ notify_friendship() {
     title="$sp_title friendship $from → $to"
     body=""
     _emit "$title" "$body" "low" "$(_notify_icon_path friendship)"
+    _play_sound friendship
 }

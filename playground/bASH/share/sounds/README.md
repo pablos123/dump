@@ -1,12 +1,18 @@
 # pokidle sound assets
 
-Three short OGG Vorbis clips ship here:
+Seven short OGG Vorbis clips ship here:
 
-| File | When played |
-|------|-------------|
-| `encounter.ogg` | every encounter (when `POKIDLE_SOUND=always`) |
-| `shiny.ogg`     | shiny encounters (when `POKIDLE_SOUND=shiny` — default — or `always`) |
-| `legendary.ogg` | every legendary spawn (ignores `POKIDLE_SOUND`); falls back to shiny → encounter if missing |
+| File | When played | Policy |
+|------|-------------|--------|
+| `encounter.ogg`  | every pokemon encounter            | only if `POKIDLE_SOUND=always` |
+| `shiny.ogg`      | shiny encounters                   | `POKIDLE_SOUND=shiny` (default) or `always` |
+| `legendary.ogg`  | every legendary spawn              | unconditional (falls back shiny → encounter) |
+| `item.ogg`       | item drop notification             | unconditional |
+| `biome.ogg`      | biome rotation notification        | unconditional |
+| `level.ogg`      | level-up tick notification         | unconditional |
+| `friendship.ogg` | friendship tick notification       | unconditional |
+
+"Unconditional" = plays whenever the corresponding notification fires, ignoring `POKIDLE_SOUND`. `POKIDLE_NO_SOUND=1` still silences everything.
 
 Setup symlinks `share/sounds` → `$POKIDLE_DATA_DIR/sounds`, so the daemon resolves files via the data dir.
 
@@ -16,22 +22,23 @@ For each kind, first match wins:
 
 | Priority | Variable / path |
 |----------|-----------------|
-| 1 | `$POKIDLE_SOUND_<KIND>` (full path override) |
+| 1 | `$POKIDLE_SOUND_<KIND>` (full path override; set empty to disable that kind) |
 | 2 | `$POKIDLE_DATA_DIR/sounds/<kind>.ogg` |
 
-Missing file → silent skip, no error.
+Recognised `<KIND>` values: `ENCOUNTER`, `SHINY`, `LEGENDARY`, `ITEM`, `BIOME`, `LEVEL`, `FRIENDSHIP`.
 
-Playback uses `paplay` (PulseAudio) if available, else `aplay` (ALSA).
+Missing file → silent skip, no error. Playback uses `paplay` (PulseAudio) if available, else `aplay` (ALSA).
 
-## Playback policy (`$POKIDLE_SOUND`)
+## Global gates
 
-| Value | Behaviour |
-|-------|-----------|
-| `shiny` (default) | shiny encounters only |
-| `always` | every encounter |
-| `never` | disable sound entirely |
+| Variable | Effect |
+|----------|--------|
+| `POKIDLE_NO_SOUND=1` | disable sound for every kind |
+| `POKIDLE_SOUND=never` | disable encounter + shiny (others still play) |
+| `POKIDLE_SOUND=shiny` (default) | shiny plays, encounter silent |
+| `POKIDLE_SOUND=always` | both encounter and shiny play |
 
-`POKIDLE_NO_SOUND=1` disables sound regardless of policy. Legendary ignores both — it always plays if its file is found.
+Legendary, item, biome, level, friendship ignore `POKIDLE_SOUND`; silence them individually with `POKIDLE_SOUND_<KIND>=`.
 
 ## Replacing the bundled clips
 
