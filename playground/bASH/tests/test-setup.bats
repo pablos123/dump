@@ -25,7 +25,7 @@ teardown() {
     rm -rf "$POKIDLE_TEST_HOME" "$BATS_TMPDIR/bin.$$"
 }
 
-@test "pokidle setup creates config + unit + symlink and skips enable" {
+@test "pokidle setup creates config + unit + symlink and enables the unit" {
     run "$REPO_ROOT/pokidle" setup
     [ "$status" -eq 0 ]
     [ -f "$XDG_CONFIG_HOME/pokidle/biomes.json" ]
@@ -35,6 +35,14 @@ teardown() {
     [ -L "$XDG_DATA_HOME/pokidle/notify" ]
     [ -L "$XDG_DATA_HOME/pokidle/sounds" ]
     [ "$(readlink "$XDG_DATA_HOME/pokidle/sounds")" = "$REPO_ROOT/share/sounds" ]
+    grep -q 'daemon-reload' "$HOME/systemctl.log"
+    grep -q 'enable --now' "$HOME/systemctl.log"
+}
+
+@test "pokidle setup --no-enable installs without starting the unit" {
+    run "$REPO_ROOT/pokidle" setup --no-enable
+    [ "$status" -eq 0 ]
+    [ -f "$XDG_CONFIG_HOME/systemd/user/pokidle.service" ]
     grep -q 'daemon-reload' "$HOME/systemctl.log"
     ! grep -q 'enable --now' "$HOME/systemctl.log"
 }
@@ -89,13 +97,13 @@ EOF
     [ ! -L "$XDG_DATA_HOME/pokidle/sounds" ]
 }
 
-@test "pokidle setup --enable also enables the unit" {
+@test "pokidle setup --enable is accepted (back-compat) and enables the unit" {
     run "$REPO_ROOT/pokidle" setup --enable
     [ "$status" -eq 0 ]
     grep -q 'enable --now' "$HOME/systemctl.log"
 }
 
-@test "pokidle setup --enable propagates systemctl failure" {
+@test "pokidle setup propagates systemctl enable failure" {
     cat > "$BATS_TMPDIR/bin.$$/systemctl" <<'EOF'
 #!/bin/bash
 echo "stub-systemctl: $*" >> "$HOME/systemctl.log"
@@ -105,7 +113,7 @@ case "$*" in
 esac
 EOF
     chmod +x "$BATS_TMPDIR/bin.$$/systemctl"
-    run "$REPO_ROOT/pokidle" setup --enable
+    run "$REPO_ROOT/pokidle" setup
     [ "$status" -ne 0 ]
     [[ "$output" == *"enable failed"* ]]
 }

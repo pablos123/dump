@@ -60,7 +60,7 @@ Commands:
                           pools = wipe pool cache
                           db    = wipe sqlite DB at $POKIDLE_DB_PATH
                           all   = both. Prompts unless --yes is given.
-  setup [--enable]        Install user systemd unit + config dirs
+  setup [--no-enable]     Install + enable/start the systemd unit (--no-enable: install only)
   uninstall               Disable + remove unit (DB/cache untouched)
   status                  systemctl status + last tick + current biome
   help, -h, --help        Show this help
@@ -670,6 +670,16 @@ pokidle_tick_legendary() {
         jq -r '"legendary: \(.species) lvl \(.level) [\(.biome_label)]"' <<< "$enc_with_meta"
     fi
 }
+# Render a sprite inline via chafa. chafa auto-detects the terminal's graphics
+# protocol (kitty/sixel/iterm → pixel-perfect, symbol cells otherwise), so the
+# preview is as crisp as the terminal allows. No-op if chafa is absent or the
+# sprite path is empty/null.
+_pokidle_render_sprite() {
+    local sprite="$1"
+    [[ -n "$sprite" && "$sprite" != "null" ]] || return 0
+    command -v chafa > /dev/null || return 0
+    chafa --size="${POKIDLE_IMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
+}
 pokidle_list() {
     db_init
     local export_mode=0 json_mode=0 args=()
@@ -734,9 +744,7 @@ pokidle_list() {
         moves="$(jq -r '.moves_json | fromjson | join(", ")' <<< "$enc")"
         printf '   Stats: %s\n   IVs:   %s\n   EVs:   %s\n   Moves: %s\n' \
             "$stats" "$ivs" "$evs" "$moves"
-        if [[ -n "$sprite" && "$sprite" != "null" ]] && command -v catimg > /dev/null; then
-            catimg -w "${POKIDLE_CATIMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
-        fi
+        _pokidle_render_sprite "$sprite"
         printf '\n'
     done < <(jq -c '.[]' <<< "$rows")
 }
@@ -764,9 +772,7 @@ pokidle_items() {
         item="$(jq -r '.item' <<< "$d")"
         sprite="$(jq -r '.sprite_path // ""' <<< "$d")"
         printf '%s   %s   %s\n' "$(date -d "@$ts" '+%F %H:%M')" "$biome" "$item"
-        if [[ -n "$sprite" && "$sprite" != "null" ]] && command -v catimg > /dev/null; then
-            catimg -w "${POKIDLE_CATIMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
-        fi
+        _pokidle_render_sprite "$sprite"
     done < <(jq -c '.[]' <<< "$rows")
 }
 
@@ -925,18 +931,23 @@ pokidle_switch_biome() {
 }
 
 pokidle_setup() {
-    local enable=0 force=0
+    # Setup installs *and* activates the service: pokidle is a daemon, so an
+    # install that didn't start it would be useless. Pass --no-enable to only
+    # install the unit (then start it yourself), or `uninstall` to reverse.
+    local enable=1 force=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --enable) enable=1; shift ;;
-            --force)  force=1; shift ;;
+            --enable)    enable=1; shift ;;   # back-compat no-op (default)
+            --no-enable) enable=0; shift ;;
+            --force)     force=1; shift ;;
             *) printf 'setup: unknown flag %s\n' "$1" >&2; return 2 ;;
         esac
     done
 
-    # 0. Dependency check (warn-only).
+    # 0. Dependency check. systemctl is required: the whole app runs as a
+    #    systemd user service.
     local req missing_req=()
-    for req in jq curl sqlite3 notify-send awk; do
+    for req in jq curl sqlite3 notify-send awk systemctl; do
         command -v "$req" >/dev/null || missing_req+=("$req")
     done
     if (( ${#missing_req[@]} > 0 )); then
@@ -947,8 +958,8 @@ pokidle_setup() {
     if ! command -v paplay >/dev/null && ! command -v aplay >/dev/null; then
         printf 'setup: optional dep missing: paplay or aplay (sound playback will be skipped)\n'
     fi
-    command -v catimg >/dev/null || \
-        printf 'setup: optional dep missing: catimg (sprite preview in list/items will be skipped)\n'
+    command -v chafa >/dev/null || \
+        printf 'setup: optional dep missing: chafa (sprite preview in list/items will be skipped)\n'
 
     # 1. Config dir + biomes.json
     mkdir -p -- "$POKIDLE_CONFIG_DIR"
@@ -1033,7 +1044,7 @@ pokidle_setup() {
             return 1
         fi
     else
-        printf 'next: systemctl --user enable --now pokidle.service\n'
+        printf 'installed (not started). next: systemctl --user enable --now pokidle.service\n'
     fi
 }
 
