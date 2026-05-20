@@ -43,19 +43,17 @@ teardown() {
     [ ! -f "$POKIDLE_CACHE_DIR/pools/cave.json" ]
 }
 
-@test "clean pools: removes biome-areas directory (legacy, no longer used)" {
+@test "clean pools: removes the pool cache directory" {
     local tmpcache
     tmpcache="$(mktemp -d)"
-    mkdir -p "$tmpcache/pools" "$tmpcache/biome-areas"
+    mkdir -p "$tmpcache/pools"
     : > "$tmpcache/pools/forest.json"
-    : > "$tmpcache/biome-areas/forest.json"
     POKIDLE_CACHE_DIR="$tmpcache"
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     export POKIDLE_CACHE_DIR POKIDLE_REPO_ROOT
     run "$REPO_ROOT/pokidle" clean pools --yes
     [ "$status" -eq 0 ]
     [ ! -d "$tmpcache/pools" ]
-    [ ! -d "$tmpcache/biome-areas" ]
 }
 
 @test "pokidle clean db --yes removes the sqlite db file" {
@@ -70,11 +68,11 @@ teardown() {
     [ ! -f "$tmpdb" ]
 }
 
-@test "pokidle clean all --yes wipes pools + biome-areas + db" {
+@test "pokidle clean all --yes wipes pools + db" {
     local tmpcache tmpdb
     tmpcache="$(mktemp -d)"
     tmpdb="$(mktemp "$BATS_TMPDIR/pokidle.XXXXXX.db")"
-    mkdir -p "$tmpcache/pools" "$tmpcache/biome-areas"
+    mkdir -p "$tmpcache/pools"
     : > "$tmpcache/pools/forest.json"
     sqlite3 "$tmpdb" "CREATE TABLE x(a INTEGER);"
     POKIDLE_CACHE_DIR="$tmpcache"
@@ -84,7 +82,6 @@ teardown() {
     run "$REPO_ROOT/pokidle" clean all --yes
     [ "$status" -eq 0 ]
     [ ! -d "$tmpcache/pools" ]
-    [ ! -d "$tmpcache/biome-areas" ]
     [ ! -f "$tmpdb" ]
 }
 
@@ -202,7 +199,7 @@ _seed_pokeapi_cache() {
     sqlite3 "$POKIDLE_DB_PATH" \
         "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('cave', $(date +%s));"
 
-    local pool='{"biome":"cave","built_at":"2026-05-08T00:00:00Z","schema":2,"tiers":{"common":[{"species":"treecko","min":5,"max":7}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    local pool='{"biome":"cave","built_at":"2026-05-08T00:00:00Z","schema":3,"tiers":{"common":[{"species":"treecko","min":5,"max":7}],"uncommon":[],"rare":[],"very_rare":[]}}'
     mkdir -p "$POKIDLE_CACHE_DIR/pools"
     printf '%s' "$pool" > "$POKIDLE_CACHE_DIR/pools/cave.json"
 

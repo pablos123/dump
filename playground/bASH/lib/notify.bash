@@ -49,15 +49,13 @@ _emit() {
 
 notify_pokemon() {
     local enc="$1"
-    local species level nature ability gender shiny held biome_label is_legendary
+    local species level nature ability shiny held is_legendary
     species="$(jq -r '.species' <<< "$enc")"
     level="$(jq -r '.level' <<< "$enc")"
     nature="$(jq -r '.nature' <<< "$enc")"
     ability="$(jq -r '.ability' <<< "$enc")"
-    gender="$(jq -r '.gender' <<< "$enc")"
     shiny="$(jq -r '.shiny' <<< "$enc")"
     held="$(jq -r '.held_berry // ""' <<< "$enc")"
-    biome_label="$(jq -r '.biome_label // ""' <<< "$enc")"
     is_legendary="$(jq -r '.is_legendary // false' <<< "$enc")"
 
     local moves
@@ -143,9 +141,8 @@ _play_sound() {
 
 notify_item() {
     local item_json="$1"
-    local name biome_label icon
+    local name icon
     name="$(jq -r '.item' <<< "$item_json")"
-    biome_label="$(jq -r '.biome_label // ""' <<< "$item_json")"
     icon="$(jq -r '.sprite_path // ""' <<< "$item_json")"
     [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path item)"
     local title body
@@ -157,10 +154,9 @@ notify_item() {
 
 notify_evolution() {
     local evo_json="$1"
-    local from to biome_label icon
+    local from to icon
     from="$(jq -r '.from' <<< "$evo_json")"
     to="$(jq -r '.to' <<< "$evo_json")"
-    biome_label="$(jq -r '.biome_label // ""' <<< "$evo_json")"
     icon="$(jq -r '.sprite_path // ""' <<< "$evo_json")"
     [[ -n "$icon" && -f "$icon" ]] || icon="$(_notify_icon_path evolution)"
 
@@ -183,7 +179,7 @@ notify_biome_change() {
 }
 
 notify_level() {
-    local species="$1" from="$2" to="$3" biome_label="${4:-}"
+    local species="$1" from="$2" to="$3"
     local sp_title title body
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title leveled $from → $to"
@@ -193,7 +189,7 @@ notify_level() {
 }
 
 notify_friendship() {
-    local species="$1" from="$2" to="$3" biome_label="${4:-}"
+    local species="$1" from="$2" to="$3"
     local sp_title title body
     sp_title="$(_titlecase_words "$species")"
     title="$sp_title friendship $from → $to"

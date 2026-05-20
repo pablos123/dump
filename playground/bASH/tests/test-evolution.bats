@@ -194,7 +194,7 @@ setup() {
     export POKIDLE_DB_PATH POKIDLE_REPO_ROOT POKIDLE_CACHE_DIR POKIDLE_CONFIG_DIR
 
     cat > "$POKIDLE_CACHE_DIR/pools/orchard.json" <<'EOF'
-{"biome":"orchard","schema":2,"tiers":{
+{"biome":"orchard","schema":3,"tiers":{
   "common":[{"species":"zigzagoon","min":3,"max":5}],
   "uncommon":[],"rare":[],"very_rare":[]
 }}

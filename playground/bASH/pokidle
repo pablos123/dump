@@ -57,7 +57,7 @@ Commands:
                           All-mode prompts unless --yes is given.
   switch-biome <biome>    Close active session, open new session in <biome>
   clean <pools|db|all> [--yes]
-                          pools = wipe pool cache + legacy biome-areas/
+                          pools = wipe pool cache
                           db    = wipe sqlite DB at $POKIDLE_DB_PATH
                           all   = both. Prompts unless --yes is given.
   setup [--enable]        Install user systemd unit + config dirs
@@ -395,15 +395,9 @@ pokidle_tick_level() {
     db_init
     local rows
     rows="$(db_list_current_week_encounters)"
-    local notify_on=0 biome_label=""
+    local notify_on=0
     if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_LEVEL:-0}" == "1" ]]; then
         notify_on=1
-        local _active _sid _biome
-        _active="$(db_active_biome_session)"
-        if [[ -n "$_active" ]]; then
-            IFS=$'\t' read -r _sid _biome _ <<< "$_active"
-            biome_label="$(biome_get "$_biome" | jq -r '.label')"
-        fi
     fi
     local leveled='[]'
     local n
@@ -433,7 +427,7 @@ pokidle_tick_level() {
         if (( dry_run == 0 )); then
             db_update_encounter_level_stats "$id" "$new_level" "$stats"
         fi
-        (( notify_on )) && notify_level "$species" "$level" "$new_level" "$biome_label"
+        (( notify_on )) && notify_level "$species" "$level" "$new_level"
         leveled="$(jq -c --argjson id "$id" --arg sp "$species" \
             --argjson from "$level" --argjson to "$new_level" \
             '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$leveled")"
@@ -466,15 +460,9 @@ pokidle_tick_friendship() {
     db_init
     local rows
     rows="$(db_list_current_week_encounters)"
-    local notify_on=0 biome_label=""
+    local notify_on=0
     if (( no_notify == 0 )) && [[ "${POKIDLE_NOTIFY_FRIENDSHIP:-0}" == "1" ]]; then
         notify_on=1
-        local _active _sid _biome
-        _active="$(db_active_biome_session)"
-        if [[ -n "$_active" ]]; then
-            IFS=$'\t' read -r _sid _biome _ <<< "$_active"
-            biome_label="$(biome_get "$_biome" | jq -r '.label')"
-        fi
     fi
     local befriended='[]'
     local n
@@ -495,7 +483,7 @@ pokidle_tick_friendship() {
         if (( dry_run == 0 )); then
             db_update_encounter_friendship "$id" "$fr_new"
         fi
-        (( notify_on )) && notify_friendship "$species" "$fr_old" "$fr_new" "$biome_label"
+        (( notify_on )) && notify_friendship "$species" "$fr_old" "$fr_new"
         befriended="$(jq -c --argjson id "$id" --arg sp "$species" \
             --argjson from "$fr_old" --argjson to "$fr_new" \
             '. + [{id:$id, species:$sp, from:$from, to:$to}]' <<< "$befriended")"
@@ -842,9 +830,9 @@ pokidle_clean() {
 
     local prompt
     case "$target" in
-        pools) prompt="Wipe $POKIDLE_CACHE_DIR/{pools,biome-areas}?" ;;
+        pools) prompt="Wipe $POKIDLE_CACHE_DIR/pools?" ;;
         db)    prompt="Wipe $POKIDLE_DB_PATH?" ;;
-        all)   prompt="Wipe $POKIDLE_CACHE_DIR/{pools,biome-areas} AND $POKIDLE_DB_PATH?" ;;
+        all)   prompt="Wipe $POKIDLE_CACHE_DIR/pools AND $POKIDLE_DB_PATH?" ;;
     esac
 
     if (( ! force )); then
@@ -855,17 +843,17 @@ pokidle_clean() {
 
     case "$target" in
         pools)
-            rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
-            printf 'cleaned: pools/ biome-areas/\n'
+            rm -rf -- "$POKIDLE_CACHE_DIR/pools"
+            printf 'cleaned: pools/\n'
             ;;
         db)
             rm -f -- "$POKIDLE_DB_PATH"
             printf 'cleaned: %s\n' "$POKIDLE_DB_PATH"
             ;;
         all)
-            rm -rf -- "$POKIDLE_CACHE_DIR/pools" "$POKIDLE_CACHE_DIR/biome-areas"
+            rm -rf -- "$POKIDLE_CACHE_DIR/pools"
             rm -f -- "$POKIDLE_DB_PATH"
-            printf 'cleaned: pools/ biome-areas/ + %s\n' "$POKIDLE_DB_PATH"
+            printf 'cleaned: pools/ + %s\n' "$POKIDLE_DB_PATH"
             ;;
     esac
 }
@@ -947,7 +935,7 @@ pokidle_setup() {
     done
 
     # 0. Dependency check (warn-only).
-    local req opt missing_req=()
+    local req missing_req=()
     for req in jq curl sqlite3 notify-send awk; do
         command -v "$req" >/dev/null || missing_req+=("$req")
     done

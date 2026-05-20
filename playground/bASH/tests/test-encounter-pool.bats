@@ -51,17 +51,6 @@ setup() {
     [ "$output" = "$POKIDLE_CACHE_DIR/pools/cave.json" ]
 }
 
-@test "encounter_tier_for_pct: boundary values map to expected tiers" {
-    [ "$(encounter_tier_for_pct 100)" = "common" ]
-    [ "$(encounter_tier_for_pct 25)"  = "common" ]
-    [ "$(encounter_tier_for_pct 24)"  = "uncommon" ]
-    [ "$(encounter_tier_for_pct 10)"  = "uncommon" ]
-    [ "$(encounter_tier_for_pct 9)"   = "rare" ]
-    [ "$(encounter_tier_for_pct 3)"   = "rare" ]
-    [ "$(encounter_tier_for_pct 2)"   = "very_rare" ]
-    [ "$(encounter_tier_for_pct 0)"   = "very_rare" ]
-}
-
 @test "encounter_species_for_name: bare species passes through unchanged" {
     [ "$(encounter_species_for_name treecko)" = "treecko" ]
     [ "$(encounter_species_for_name caterpie)" = "caterpie" ]
@@ -207,7 +196,7 @@ EOF
 }
 
 @test "encounter_roll_pool_entry returns species from a populated tier" {
-    local pool='{"schema":2,"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
+    local pool='{"schema":3,"tiers":{"common":[{"species":"zubat","min":5,"max":8}],"uncommon":[],"rare":[],"very_rare":[]}}'
     run encounter_roll_pool_entry "$pool"
     [ "$status" -eq 0 ]
     [ "$(jq -r '.species' <<< "$output")" = "zubat" ]
@@ -216,14 +205,14 @@ EOF
 }
 
 @test "encounter_roll_pool_entry falls back forward when only very_rare populated" {
-    local pool='{"schema":2,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[{"species":"mew","min":40,"max":40}]}}'
+    local pool='{"schema":3,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[{"species":"mew","min":40,"max":40}]}}'
     run encounter_roll_pool_entry "$pool"
     [ "$status" -eq 0 ]
     [ "$(jq -r '.species' <<< "$output")" = "mew" ]
 }
 
 @test "encounter_roll_pool_entry errors when all tiers empty" {
-    local pool='{"schema":2,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[]}}'
+    local pool='{"schema":3,"tiers":{"common":[],"uncommon":[],"rare":[],"very_rare":[]}}'
     run encounter_roll_pool_entry "$pool"
     [ "$status" -ne 0 ]
 }
@@ -233,7 +222,7 @@ EOF
     export POKIDLE_CACHE_DIR
     mkdir -p "$POKIDLE_CACHE_DIR/pools"
     cat > "$POKIDLE_CACHE_DIR/pools/cave.json" <<'EOF'
-{"biome":"cave","schema":2,"tiers":{
+{"biome":"cave","schema":3,"tiers":{
   "common":[{"species":"zubat","min":5,"max":8}],
   "uncommon":[{"species":"golbat","min":22,"max":25}],
   "rare":[],"very_rare":[]

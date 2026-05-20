@@ -5,10 +5,9 @@
 # All 6 stats in canonical order.
 ENCOUNTER_STATS=(hp attack defense special-attack special-defense speed)
 
-# Rarity tier definitions. ENCOUNTER_TIER_PCT_MIN[i] is the inclusive lower
-# bound of tier ENCOUNTER_TIERS[i]; tiers are listed common-first.
+# Rarity tier definitions. Tiers listed common-first; ENCOUNTER_TIER_ROLL_WEIGHT[i]
+# is the roll weight of ENCOUNTER_TIERS[i] in encounter_roll_pool_entry.
 ENCOUNTER_TIERS=(common uncommon rare very_rare)
-ENCOUNTER_TIER_PCT_MIN=(25 10 3 0)
 ENCOUNTER_TIER_ROLL_WEIGHT=(60 25 12 3)
 
 # Held items by PokeAPI type. Each type maps to a space-separated string of item names.
@@ -38,17 +37,6 @@ declare -ga ENCOUNTER_HELD_ITEMS_GENERIC=(
     "leftovers" "shell-bell" "lucky-egg" "amulet-coin"
     "smoke-ball" "soothe-bell" "exp-share" "everstone"
 )
-
-encounter_tier_for_pct() {
-    local pct="$1" i
-    for i in 0 1 2 3; do
-        if (( pct >= ENCOUNTER_TIER_PCT_MIN[i] )); then
-            printf '%s' "${ENCOUNTER_TIERS[$i]}"
-            return
-        fi
-    done
-    printf 'very_rare'
-}
 
 # capture_rate: PokeAPI value 0..255. Higher = easier to catch = more common.
 # Thresholds: 150/75/25 bucket into common/uncommon/rare/very_rare.
@@ -507,7 +495,7 @@ encounter_pool_load() {
     cat "$p"
 }
 
-# Roll a pool entry from a v2 pool {schema:2, tiers:{...}}.
+# Roll a pool entry from a pool {schema:3, tiers:{...}}.
 # Pick a tier by fixed weights, walk forward to the next non-empty tier on
 # empty bucket, then pick uniformly inside. Errors out if every tier empty.
 encounter_roll_pool_entry() {

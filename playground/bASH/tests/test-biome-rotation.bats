@@ -21,7 +21,7 @@ _write_pool() {
     local biome="$1" n="$2"
     mkdir -p -- "$POKIDLE_CACHE_DIR/pools"
     jq -n --arg b "$biome" --argjson n "$n" '
-        {biome: $b, schema: 2, tiers: {
+        {biome: $b, schema: 3, tiers: {
             common: [range(0; $n) | {species: ("s\(.))"), min: 5, max: 8}],
             uncommon: [], rare: [], very_rare: []
         }}
