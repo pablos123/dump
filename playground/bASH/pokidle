@@ -956,10 +956,11 @@ pokidle_setup() {
         printf 'setup: install them via your package manager and re-run setup\n' >&2
         return 1
     fi
-    for opt in paplay aplay ffmpeg catimg; do
-        command -v "$opt" >/dev/null || \
-            printf 'setup: optional dep missing: %s (some features will silently skip)\n' "$opt"
-    done
+    if ! command -v paplay >/dev/null && ! command -v aplay >/dev/null; then
+        printf 'setup: optional dep missing: paplay or aplay (sound playback will be skipped)\n'
+    fi
+    command -v catimg >/dev/null || \
+        printf 'setup: optional dep missing: catimg (sprite preview in list/items will be skipped)\n'
 
     # 1. Config dir + biomes.json
     mkdir -p -- "$POKIDLE_CONFIG_DIR"
