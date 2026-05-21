@@ -96,6 +96,9 @@ notify_pokemon() {
 _play_sound() {
     local kind="$1"
 
+    # Suppressed notifications → no sound either (used by tests).
+    [[ "${POKIDLE_NO_NOTIFY:-0}" == "1" ]] && return 0
+
     # Per-kind enable toggle, mirroring POKIDLE_NOTIFY_<KIND>. Defaults:
     # shiny + legendary on, everything else off.
     local enabled_default

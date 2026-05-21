@@ -20,20 +20,25 @@ _sd_stat_label() {
 
 showdown_format() {
     local enc="$1"
-    local species nature ability level shiny held
+    local species nature ability level shiny held item
     species="$(jq -r '.species' <<< "$enc")"
     nature="$(jq -r '.nature' <<< "$enc")"
     ability="$(jq -r '.ability' <<< "$enc")"
     level="$(jq -r '.level' <<< "$enc")"
     shiny="$(jq -r '.shiny' <<< "$enc")"
     held="$(jq -r '.held_berry // ""' <<< "$enc")"
+    item="$(jq -r '.held_item // ""' <<< "$enc")"
 
     local sp_t ab_t nat_t
     sp_t="$(_sd_titlecase_words "$species")"
     ab_t="$(_sd_titlecase_words "$ability")"
     nat_t="$(_sd_titlecase_words "$nature")"
 
-    if [[ -n "$held" && "$held" != "null" ]]; then
+    # held_item is a full item slug (e.g. leftovers, choice-band, occa-berry)
+    # rendered as-is; held_berry is a bare berry name needing the "Berry" word.
+    if [[ -n "$item" && "$item" != "null" ]]; then
+        printf '%s @ %s\n' "$sp_t" "$(_sd_titlecase_words "$item")"
+    elif [[ -n "$held" && "$held" != "null" ]]; then
         local berry_t
         berry_t="$(_sd_titlecase_words "$held")"
         printf '%s @ %s Berry\n' "$sp_t" "$berry_t"

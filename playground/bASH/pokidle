@@ -3,7 +3,16 @@
 
 set -euo pipefail
 
-POKIDLE_REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve through symlinks so invoking via e.g. ~/.local/bin/pokidle still
+# finds lib/ next to the real script.
+_pokidle_src="${BASH_SOURCE[0]}"
+while [[ -L "$_pokidle_src" ]]; do
+    _pokidle_link="$(readlink -- "$_pokidle_src")"
+    [[ "$_pokidle_link" == /* ]] && _pokidle_src="$_pokidle_link" \
+        || _pokidle_src="$(dirname -- "$_pokidle_src")/$_pokidle_link"
+done
+POKIDLE_REPO_ROOT="$(cd -- "$(dirname -- "$_pokidle_src")" && pwd)"
+unset _pokidle_src _pokidle_link
 export POKIDLE_REPO_ROOT
 
 : "${POKIDLE_CONFIG_DIR:=${XDG_CONFIG_HOME:-$HOME/.config}/pokidle}"
@@ -49,6 +58,12 @@ Commands:
                             --no-notify     Skip notify-send
                             --json          Emit JSON to stdout
   list [filters]          Pretty list of pokemon encounters
+                            --json     Emit raw JSON
+                            --export   Random Showdown team: up to 6 distinct
+                                       species from the current week (override
+                                       window with --since/--until), each given
+                                       a distinct held item from item drops in
+                                       the same window
   items [filters]         Pretty list of item drops
   stats                   Aggregates: totals, shinies, by biome, top species
   current                 Show current biome + counts
@@ -685,6 +700,102 @@ _pokidle_render_sprite() {
     command -v chafa > /dev/null || return 0
     chafa --size="${POKIDLE_IMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
 }
+# Fisher-Yates shuffle of a named array, in place, using $RANDOM.
+_pokidle_shuffle() {
+    local -n _arr="$1"
+    local i j tmp
+    for (( i=${#_arr[@]}-1; i>0; i-- )); do
+        j=$(( RANDOM % (i + 1) ))
+        tmp="${_arr[i]}"; _arr[i]="${_arr[j]}"; _arr[j]="$tmp"
+    done
+}
+
+# Build a random Showdown export team from stored encounters.
+# Picks up to 6 distinct species within a window (default: current ISO week,
+# overridable via --since/--until), one random encounter per species. Held
+# items are drawn from item_drops in the same window — distinct across the
+# team — with each mon's own berry as one additional candidate. Other list
+# filters (--shiny/--species/--biome/--nature/--min-iv-total) constrain the
+# encounter pool.
+_pokidle_export_team() {
+    local filters=() since_ts="" until_ts=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --since) since_ts="$(date -d "$2" +%s)" || return 2; shift 2 ;;
+            --until) until_ts="$(date -d "$2" +%s)" || return 2; shift 2 ;;
+            *)       filters+=("$1"); shift ;;
+        esac
+    done
+
+    # Default window = current ISO week (Mon 00:00 .. Sun 23:59:59) when the
+    # caller gave neither bound.
+    if [[ -z "$since_ts" && -z "$until_ts" ]]; then
+        local dow
+        dow="$(date +%u)"
+        since_ts="$(date -d "$(( dow - 1 )) days ago $(date +%F) 00:00:00" +%s)"
+        until_ts=$(( since_ts + 7*86400 - 1 ))
+    fi
+
+    local enc_args=("${filters[@]}" --limit 1000)
+    [[ -n "$since_ts" ]] && enc_args+=(--since "@$since_ts")
+    [[ -n "$until_ts" ]] && enc_args+=(--until "@$until_ts")
+    local rows
+    rows="$(db_list_encounters "${enc_args[@]}")"
+
+    local species=()
+    mapfile -t species < <(jq -r '[.[].species] | unique | .[]' <<< "$rows")
+    (( ${#species[@]} == 0 )) && return 0
+    _pokidle_shuffle species
+    species=("${species[@]:0:6}")
+
+    local item_args=(--limit 1000)
+    [[ -n "$since_ts" ]] && item_args+=(--since "@$since_ts")
+    [[ -n "$until_ts" ]] && item_args+=(--until "@$until_ts")
+    local items=()
+    mapfile -t items < <(db_list_item_drops "${item_args[@]}" | jq -r '[.[].item] | unique | .[]')
+    _pokidle_shuffle items
+
+    local used="|" sep=""
+    local sp
+    for sp in "${species[@]}"; do
+        local cnt enc
+        cnt="$(jq --arg s "$sp" '[.[] | select(.species==$s)] | length' <<< "$rows")"
+        enc="$(jq -c --arg s "$sp" --argjson i "$(( RANDOM % cnt ))" \
+            '[.[] | select(.species==$s)][$i]' <<< "$rows")"
+
+        # Candidate item pool: unused window items + this mon's own berry
+        # (bare berry slug normalized to "<name>-berry").
+        local cands=() it
+        for it in "${items[@]}"; do
+            [[ "$used" == *"|$it|"* ]] && continue
+            cands+=("$it")
+        done
+        local berry
+        berry="$(jq -r '.held_berry // ""' <<< "$enc")"
+        if [[ -n "$berry" && "$berry" != "null" ]]; then
+            local berry_item="$berry-berry"
+            [[ "$used" == *"|$berry_item|"* ]] || cands+=("$berry_item")
+        fi
+        local chosen=""
+        if (( ${#cands[@]} > 0 )); then
+            chosen="${cands[$(( RANDOM % ${#cands[@]} ))]}"
+            used+="$chosen|"
+        fi
+
+        local norm
+        norm="$(jq -c --arg item "$chosen" '{
+            species, level, nature, ability, is_hidden_ability, shiny,
+            held_item: ($item | select(. != "") // null),
+            ivs: [.iv_hp,.iv_atk,.iv_def,.iv_spa,.iv_spd,.iv_spe],
+            evs: [.ev_hp,.ev_atk,.ev_def,.ev_spa,.ev_spd,.ev_spe],
+            moves: (.moves_json | fromjson)
+        }' <<< "$enc")"
+        printf '%s' "$sep"
+        showdown_format "$norm"
+        sep=$'\n'
+    done
+}
+
 pokidle_list() {
     db_init
     local export_mode=0 json_mode=0 args=()
@@ -696,28 +807,13 @@ pokidle_list() {
         esac
     done
 
-    local rows
-    rows="$(db_list_encounters "${args[@]}")"
-
     if (( export_mode )); then
-        local enc
-        local sep=""
-        while IFS= read -r enc; do
-            [[ -z "$enc" ]] && continue
-            local norm
-            norm="$(jq -c '{
-                species, level, nature, ability, is_hidden_ability,
-                shiny, held_berry,
-                ivs: [.iv_hp,.iv_atk,.iv_def,.iv_spa,.iv_spd,.iv_spe],
-                evs: [.ev_hp,.ev_atk,.ev_def,.ev_spa,.ev_spd,.ev_spe],
-                moves: (.moves_json | fromjson)
-            }' <<< "$enc")"
-            printf '%s' "$sep"
-            showdown_format "$norm"
-            sep=$'\n'
-        done < <(jq -c '.[]' <<< "$rows")
+        _pokidle_export_team "${args[@]}"
         return
     fi
+
+    local rows
+    rows="$(db_list_encounters "${args[@]}")"
 
     if (( json_mode )); then
         printf '%s\n' "$rows"

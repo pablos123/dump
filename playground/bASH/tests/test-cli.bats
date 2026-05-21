@@ -23,6 +23,115 @@ teardown() {
     rm -rf "$POKIDLE_CONFIG_DIR" "$POKIDLE_CACHE_DIR" "$POKIDLE_DATA_DIR" "$POKEAPI_CACHE_DIR"
 }
 
+_seed_schema() { sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"; }
+
+_mk_session() { # $1 biome (default cave), $2 started_at (default now)
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO biome_sessions(biome_id, started_at) VALUES ('${1:-cave}', ${2:-$(date +%s)});
+         SELECT last_insert_rowid();"
+}
+
+_ins_enc() { # $1 sid  $2 species  $3 ts  [$4 shiny=0]  [$5 held_berry|empty=NULL]
+    local berry="NULL"; [[ -n "${5:-}" ]] && berry="'$5'"
+    sqlite3 "$POKIDLE_DB_PATH" "
+        INSERT INTO encounters(session_id, encountered_at, species, dex_id, level, nature,
+            ability, is_hidden_ability, gender, shiny, held_berry,
+            iv_hp,iv_atk,iv_def,iv_spa,iv_spd,iv_spe,
+            ev_hp,ev_atk,ev_def,ev_spa,ev_spd,ev_spe,
+            stat_hp,stat_atk,stat_def,stat_spa,stat_spd,stat_spe,
+            moves_json, sprite_path)
+        VALUES ($1, $3, '$2', 1, 50, 'adamant', 'overgrow', 0, 'M', ${4:-0}, $berry,
+            31,31,31,31,31,31, 0,0,0,0,0,0, 100,100,100,100,100,100,
+            '[\"tackle\"]', NULL);"
+}
+
+_ins_item() { # $1 sid  $2 item  $3 ts
+    sqlite3 "$POKIDLE_DB_PATH" \
+        "INSERT INTO item_drops(session_id, encountered_at, item, sprite_path)
+         VALUES ($1, $3, '$2', NULL);"
+}
+
+@test "list --export caps team at 6 distinct species" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now; now="$(date +%s)"
+    local sp
+    for sp in bulbasaur charmander squirtle pidgey rattata ekans sandshrew nidoran; do
+        _ins_enc "$sid" "$sp" "$now"
+    done
+    run "$REPO_ROOT/pokidle" list --export
+    [ "$status" -eq 0 ]
+    local n; n="$(grep -c 'Nature' <<< "$output")"
+    [ "$n" -eq 6 ]
+}
+
+@test "list --export yields distinct species" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now; now="$(date +%s)"
+    local i
+    for i in 1 2 3 4 5; do _ins_enc "$sid" pidgey "$now"; done
+    _ins_enc "$sid" zubat "$now"
+    run "$REPO_ROOT/pokidle" list --export
+    [ "$status" -eq 0 ]
+    local n; n="$(grep -c 'Nature' <<< "$output")"
+    [ "$n" -eq 2 ]
+}
+
+@test "list --export assigns distinct window items" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now; now="$(date +%s)"
+    _ins_enc "$sid" snorlax "$now"
+    _ins_enc "$sid" gengar "$now"
+    _ins_item "$sid" leftovers "$now"
+    _ins_item "$sid" choice-band "$now"
+    run "$REPO_ROOT/pokidle" list --export
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"@ Leftovers"* ]]
+    [[ "$output" == *"@ Choice Band"* ]]
+}
+
+@test "list --export leaves bare set when items run out" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now; now="$(date +%s)"
+    _ins_enc "$sid" snorlax "$now"
+    _ins_enc "$sid" gengar "$now"
+    _ins_item "$sid" leftovers "$now"
+    run "$REPO_ROOT/pokidle" list --export
+    [ "$status" -eq 0 ]
+    local n; n="$(grep -c '@ ' <<< "$output")"
+    [ "$n" -eq 1 ]
+}
+
+@test "list --export honors --since/--until window" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now old; now="$(date +%s)"; old=$((now - 60*86400))
+    _ins_enc "$sid" snorlax "$now"
+    _ins_enc "$sid" gengar "$old"
+    local s u
+    s="$(date -d "@$((old - 86400))" +%F)"
+    u="$(date -d "@$((old + 86400))" +%F)"
+    run "$REPO_ROOT/pokidle" list --export --since "$s" --until "$u"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Gengar"* ]]
+    [[ "$output" != *"Snorlax"* ]]
+}
+
+@test "list --export honors --shiny filter" {
+    _seed_schema
+    local sid; sid="$(_mk_session cave)"
+    local now; now="$(date +%s)"
+    _ins_enc "$sid" gengar "$now" 1
+    _ins_enc "$sid" pidgey "$now" 0
+    run "$REPO_ROOT/pokidle" list --export --shiny
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Gengar"* ]]
+    [[ "$output" != *"Pidgey"* ]]
+}
+
 @test "pokidle help exits 0" {
     run "$REPO_ROOT/pokidle" help
     [ "$status" -eq 0 ]
