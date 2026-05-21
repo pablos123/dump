@@ -1,11 +1,30 @@
 # Configuration
 
 Every knob is an environment variable. The daemon reads them from its
-environment, so set them in the systemd unit (`Environment=...` in
-`~/.config/systemd/user/pokidle.service`, or via
-`systemctl --user edit pokidle.service`) and run
-`systemctl --user daemon-reload && systemctl --user restart pokidle.service`.
-For one-off CLI runs, prefix the command: `POKIDLE_SHINY_RATE=8 pokidle tick pokemon`.
+environment, and the supported way to set them is a **systemd drop-in
+override**:
+
+```
+systemctl --user edit pokidle.service
+```
+
+This opens `~/.config/systemd/user/pokidle.service.d/override.conf`. Add an
+`Environment=` line per variable:
+
+```ini
+[Service]
+Environment=POKIDLE_SHINY_RATE=8
+Environment=POKIDLE_BIOME_HOURS=2
+```
+
+Then reload and restart:
+
+```
+systemctl --user daemon-reload && systemctl --user restart pokidle.service
+```
+
+For one-off CLI runs you can also prefix the command:
+`POKIDLE_SHINY_RATE=8 pokidle tick pokemon`.
 
 ## Paths
 
