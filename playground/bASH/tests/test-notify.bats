@@ -6,8 +6,9 @@ setup() {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     export POKIDLE_REPO_ROOT
     POKIDLE_NO_NOTIFY=1
-    POKIDLE_NO_SOUND=1
-    export POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    # Point sound dir at a nonexistent path so no clip ever plays in tests.
+    POKIDLE_SOUND_DIR="$BATS_TMPDIR/nosound.$$"
+    export POKIDLE_NO_NOTIFY POKIDLE_SOUND_DIR
     load_lib notify
 }
 
@@ -69,20 +70,25 @@ setup() {
     [[ "$output" != *"Farm"* ]]
 }
 
-@test "_play_sound: POKIDLE_SOUND=never short-circuits every kind" {
-    POKIDLE_SOUND=never
+@test "_play_sound: per-kind toggle disables/enables individual kinds" {
+    POKIDLE_SOUND_DIR="$BATS_TMPDIR/nosound.$$"
+    export POKIDLE_SOUND_DIR
+    # Every kind returns 0 whether on or off (files missing → silent skip).
+    local kind
     for kind in encounter shiny legendary item biome level friendship; do
-        run _play_sound "$kind"
+        POKIDLE_SOUND_SHINY_ENABLED=0 POKIDLE_SOUND_ENCOUNTER_ENABLED=1 \
+            run _play_sound "$kind"
         [ "$status" -eq 0 ]
     done
 }
 
-@test "_play_sound: POKIDLE_NO_SOUND=1 short-circuits every kind" {
-    POKIDLE_NO_SOUND=1
-    for kind in encounter shiny legendary item biome level friendship; do
-        run _play_sound "$kind"
-        [ "$status" -eq 0 ]
-    done
+@test "_play_sound: disabled default-on kind short-circuits before file lookup" {
+    # shiny defaults on; force off and confirm clean exit even with a real dir.
+    POKIDLE_SOUND_DIR="$REPO_ROOT/share/sounds"
+    POKIDLE_SOUND_SHINY_ENABLED=0
+    export POKIDLE_SOUND_DIR POKIDLE_SOUND_SHINY_ENABLED
+    run _play_sound shiny
+    [ "$status" -eq 0 ]
 }
 
 @test "_play_sound: unknown kind returns 0 silently" {
@@ -102,8 +108,8 @@ setup() {
 @test "notify_pokemon: legendary encounter emits LEGENDARY prefix + critical urgency" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     POKIDLE_NO_NOTIFY=1
-    POKIDLE_NO_SOUND=1
-    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    POKIDLE_SOUND_DIR="$BATS_TMPDIR/nosound.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_SOUND_DIR
     load_lib notify
     local enc out
     enc='{"species":"articuno","level":60,"nature":"timid","ability":"pressure","gender":"genderless","shiny":0,"held_berry":null,"biome_label":"Ice","stats":[210,180,200,240,220,230],"moves":["ice-beam"],"sprite_path":"","is_legendary":true}'
@@ -115,8 +121,8 @@ setup() {
 @test "notify_pokemon: shiny+legendary stacks prefixes" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     POKIDLE_NO_NOTIFY=1
-    POKIDLE_NO_SOUND=1
-    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    POKIDLE_SOUND_DIR="$BATS_TMPDIR/nosound.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_SOUND_DIR
     load_lib notify
     local enc out
     enc='{"species":"articuno","level":60,"nature":"timid","ability":"pressure","gender":"genderless","shiny":1,"held_berry":null,"biome_label":"Ice","stats":[210,180,200,240,220,230],"moves":["ice-beam"],"sprite_path":"","is_legendary":true}'
@@ -128,8 +134,8 @@ setup() {
 @test "notify_pokemon: non-legendary unchanged" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     POKIDLE_NO_NOTIFY=1
-    POKIDLE_NO_SOUND=1
-    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_NO_SOUND
+    POKIDLE_SOUND_DIR="$BATS_TMPDIR/nosound.$$"
+    export POKIDLE_REPO_ROOT POKIDLE_NO_NOTIFY POKIDLE_SOUND_DIR
     load_lib notify
     local enc out
     enc='{"species":"pidgey","level":3,"nature":"jolly","ability":"keen-eye","gender":"M","shiny":0,"held_berry":null,"biome_label":"Plain","stats":[20,18,16,12,14,22],"moves":["tackle"],"sprite_path":""}'

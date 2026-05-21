@@ -1,14 +1,12 @@
 # pokidle
 
-A passive Pokemon encounter daemon for the Linux desktop, written in Bash.
+A passive Pokemon encounter daemon for the Linux desktop.
 
-It runs as a systemd user service and, on a slow cadence, "encounters" wild
-Pokemon, drops items, levels/befriends/evolves your current-week catches, and
-rarely spawns a legendary. Each event fires a desktop notification (and
-optionally a sound). A CLI inspects, filters, and exports your catches.
+Non intruvise notifications that, on a slow cadence, _encounters_ wild Pokemon, drops items, levels/befriends/evolves your current-week catches, and rarely spawns a legendary. Shinies included!
 
-The world has 36 type-themed biomes that rotate every few hours and decide
-which species, items, and berries appear.
+A CLI inspects, filters, and exports your catches for battling in Showdown.
+
+The world has 36 type-themed biomes that rotate every few hours and decide which species, items, and berries appear.
 
 ## Dependencies
 
@@ -18,55 +16,40 @@ Required:
 - `notify-send` (libnotify)
 - `systemd` (user instance) — the daemon runs as a user service
 
-Optional (degrade gracefully):
+Optional:
 
 - `paplay` or `aplay` — notification sounds
-- `chafa` — inline sprite previews in `list` / `items` (auto-uses
-  kitty/sixel for pixel-perfect output where supported)
+- `chafa` — inline sprite previews in `list` / `items` (auto-uses kitty/sixel for pixel-perfect output where supported)
 
-## Install
+## Quickstart
 
-```sh
+Ensure `~/.local/bin` is on your `PATH`.
+
+```
 git clone https://github.com/pablos123/pokidle.git && cd pokidle && ./pokidle setup
 ```
 
-`setup` installs config/assets/unit, seeds the 36 prebuilt encounter pools, and
-**enables and starts** `pokidle.service` — installing pokidle activates it.
-Pass `--no-enable` to install without starting. Ensure `~/.local/bin` is on
-your `PATH`.
+Pass `--no-enable` to install without starting the service.
 
-Install is symlink-based: the `~/.local/bin/pokidle` launcher, the asset
-symlinks, and the service `ExecStart` all point back into this clone. **Keep
-the repo where it is** — moving or deleting it breaks the install. To relocate,
-`uninstall`, move the clone, then `setup` again.
+Install is symlink-based. **Keep the repo where it is**, moving or deleting it breaks the install.
+
+To relocate: `uninstall`, move the clone, then `setup` again.
 
 ## Usage
 
-After `setup`, `pokidle` is on your `PATH`:
+```
+pokidle help
+```
 
-```sh
-pokidle --help
+`pokeapi` is a standalone cache-aware PokeAPI client, independent of the daemon:
+
+```
+pokeapi help
 ```
 
 ## Configuration
 
-All paths, cadences, odds, and toggles are environment variables. See
-[docs/configuration.md](docs/configuration.md) for the full reference, and
-[docs/notifications.md](docs/notifications.md) for notification/sound options.
-
-## pokeapi CLI
-
-`pokeapi` is a standalone cache-aware PokeAPI probe used in development
-(`pokeapi pokemon metagross`, `pokeapi sprite eevee`). Independent of the
-daemon; run `pokeapi help`.
-
-## Tests
-
-```sh
-bats tests/
-```
-
-Ephemeral SQLite + stubbed PokeAPI fixtures. No network required.
+See [docs/configuration.md](docs/configuration.md).
 
 ## Notes
 

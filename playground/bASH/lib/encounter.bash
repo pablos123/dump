@@ -404,7 +404,7 @@ encounter_build_pool() {
         cr="$(jq -r '.capture_rate // 45' <<< "$spec")"
         tier="$(encounter_tier_for_capture_rate "$cr")"
 
-        local emin=5 emax=15
+        local emin="${POKIDLE_ENCOUNTER_LEVEL_MIN:-5}" emax="${POKIDLE_ENCOUNTER_LEVEL_MAX:-15}"
         local chain_url
         chain_url="$(jq -r '.evolution_chain.url // empty' <<< "$spec")"
         if [[ -n "$chain_url" && "$chain_url" != "null" ]]; then
