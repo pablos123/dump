@@ -57,24 +57,40 @@ Commands:
                             --no-dry-run    Persist DB writes
                             --no-notify     Skip notify-send
                             --json          Emit JSON to stdout
-  list [filters]          Pretty list of pokemon encounters
-                            --json     Emit raw JSON
-                            --export   Random Showdown team: up to 6 distinct
-                                       species from the current week (override
-                                       window with --since/--until), each given
-                                       a distinct held item from item drops in
-                                       the same window
+  encounters [filters]    Pretty list of pokemon encounters
+                            --shiny           Only shinies
+                            --since DATE      Encounters at/after DATE
+                            --until DATE      Encounters at/before DATE
+                            --biome ID        Filter by biome
+                            --species NAME    Substring match on species
+                            --nature NAME     Exact nature match
+                            --min-iv-total N  Min summed IVs
+                            --limit N         Cap rows (default 50)
+                            --json            Emit raw JSON
+                            --export          Random Showdown team: up to 6
+                                              distinct species from the current
+                                              week (override window with
+                                              --since/--until), each given a
+                                              distinct held item from item drops
+                                              in the same window
   items [filters]         Pretty list of item drops
+                            --since DATE      Drops at/after DATE
+                            --until DATE      Drops at/before DATE
+                            --biome ID        Filter by biome
+                            --item NAME       Substring match on item
+                            --limit N         Cap rows (default 50)
+                            --json            Emit raw JSON
   stats                   Aggregates: totals, shinies, by biome, top species
   current                 Show current biome + counts
   rebuild-pool [biome] [--yes]
                           Force pool rebuild (one or all; type-derived).
-                          All-mode prompts unless --yes is given.
+                          --yes skips the all-mode confirm prompt.
   switch-biome <biome>    Close active session, open new session in <biome>
   clean <pools|db|all> [--yes]
                           pools = wipe pool cache
                           db    = wipe sqlite DB at $POKIDLE_DB_PATH
-                          all   = both. Prompts unless --yes is given.
+                          all   = both
+                          Prompts for confirmation unless --yes is given.
   setup [--no-enable]     Install + enable/start the systemd unit (--no-enable: install only)
   uninstall               Disable + remove unit (DB/cache untouched)
   status                  systemctl status + last tick + current biome
@@ -110,6 +126,17 @@ _pokidle_should_rotate_biome() {
 
 # Stubs filled in by subsequent tasks.
 pokidle_daemon() {
+    # Single-instance guard: hold an exclusive lock for the daemon's lifetime.
+    if command -v flock > /dev/null; then
+        local lock_file="${POKIDLE_RUNTIME_DIR:-$POKIDLE_CACHE_DIR}/pokidle.daemon.lock"
+        mkdir -p -- "$(dirname -- "$lock_file")"
+        exec {POKIDLE_LOCK_FD}>"$lock_file"
+        if ! flock -n "$POKIDLE_LOCK_FD"; then
+            printf 'daemon: another pokidle daemon is already running (lock: %s)\n' "$lock_file" >&2
+            return 1
+        fi
+    fi
+
     db_init
     biome_validate || { printf 'daemon: biome config invalid; aborting\n' >&2; return 1; }
 
@@ -335,13 +362,9 @@ pokidle_tick() {
             entry="$(encounter_roll_pool_entry "$pool")"
             enc="$(encounter_roll_pokemon "$entry" "$biome")"
 
-            local sprite_url sprite_path=""
-            sprite_url="$(jq -r '.sprite_url // ""' <<< "$enc")"
-            if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
-                sprite_path="$POKIDLE_CACHE_DIR/sprites/$(jq -r '.species' <<< "$enc").png"
-                mkdir -p -- "$(dirname -- "$sprite_path")"
-                [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
-            fi
+            local sprite_path
+            sprite_path="$(_pokidle_pokemon_sprite \
+                "$(jq -r '.species' <<< "$enc")" "$(jq -r '.shiny' <<< "$enc")")"
 
             local enc_with_meta
             enc_with_meta="$(jq -c \
@@ -369,14 +392,9 @@ pokidle_tick() {
         item)
             local item_json
             item_json="$(encounter_roll_item "$biome")"
-            local item_name sprite_url sprite_path=""
+            local item_name sprite_path
             item_name="$(jq -r '.item' <<< "$item_json")"
-            sprite_url="$(jq -r '.sprite_url // ""' <<< "$item_json")"
-            if [[ -n "$sprite_url" && "$no_notify" == "0" ]]; then
-                sprite_path="$POKIDLE_CACHE_DIR/sprites/items/$item_name.png"
-                mkdir -p -- "$(dirname -- "$sprite_path")"
-                [[ -f "$sprite_path" ]] || curl -sS -o "$sprite_path" "$sprite_url" || sprite_path=""
-            fi
+            sprite_path="$(_pokidle_item_sprite "$item_name")"
             local item_with_meta
             item_with_meta="$(jq -c --arg l "$label" --arg sp "$sprite_path" --arg bid "$biome" '
                 . + {biome_label: $l, sprite_path: $sp, biome_id: $bid}
@@ -700,6 +718,23 @@ _pokidle_render_sprite() {
     command -v chafa > /dev/null || return 0
     chafa --size="${POKIDLE_IMG_WIDTH:-16}" "$sprite" 2>/dev/null || true
 }
+
+# Resolve a pokemon sprite via the pokeapi lib (cache-aware, rate-limited by
+# pokeapi_get on JSON cache misses). Echoes a local path or nothing.
+# POKIDLE_FETCH_SPRITES=0 disables network entirely (used by tests/offline).
+_pokidle_pokemon_sprite() {
+    local name="$1" shiny="$2"
+    [[ "${POKIDLE_FETCH_SPRITES:-1}" == "1" ]] || return 0
+    local variant=front_default
+    [[ "$shiny" == "1" ]] && variant=front_shiny
+    pokemon_sprite "$name" "$variant" 2>/dev/null || return 0
+}
+
+_pokidle_item_sprite() {
+    local name="$1"
+    [[ "${POKIDLE_FETCH_SPRITES:-1}" == "1" ]] || return 0
+    item_sprite "$name" 2>/dev/null || return 0
+}
 # Fisher-Yates shuffle of a named array, in place, using $RANDOM.
 _pokidle_shuffle() {
     local -n _arr="$1"
@@ -820,9 +855,12 @@ pokidle_list() {
         return
     fi
 
-    local enc
+    local enc first=1
     while IFS= read -r enc; do
         [[ -z "$enc" ]] && continue
+        if (( first )); then first=0; else
+            printf -- '--------------------------------------------------------------------------------\n'
+        fi
         local sp lvl nat abil gender shiny biome ts
         sp="$(jq -r '.species' <<< "$enc")"
         lvl="$(jq -r '.level' <<< "$enc")"
@@ -834,6 +872,8 @@ pokidle_list() {
         ts="$(jq -r '.encountered_at' <<< "$enc")"
         local sprite
         sprite="$(jq -r '.sprite_path // ""' <<< "$enc")"
+        [[ -n "$sprite" && -f "$sprite" ]] || sprite="$(_pokidle_pokemon_sprite "$sp" "$shiny")"
+        _pokidle_render_sprite "$sprite"
         printf '%s   %s   Lv.%s %s%s\n' \
             "$(date -d "@$ts" '+%F %H:%M')" "$biome" "$lvl" "$sp" \
             "$( [[ "$shiny" == "1" ]] && printf ' ✨' )"
@@ -843,10 +883,8 @@ pokidle_list() {
         evs="$(jq -r '"\(.ev_hp)/\(.ev_atk)/\(.ev_def)/\(.ev_spa)/\(.ev_spd)/\(.ev_spe)"' <<< "$enc")"
         stats="$(jq -r '"\(.stat_hp)/\(.stat_atk)/\(.stat_def)/\(.stat_spa)/\(.stat_spd)/\(.stat_spe)"' <<< "$enc")"
         moves="$(jq -r '.moves_json | fromjson | join(", ")' <<< "$enc")"
-        printf '   Stats: %s\n   IVs:   %s\n   EVs:   %s\n   Moves: %s\n' \
+        printf '   Stats: %s\n   IVs:   %s\n   EVs:   %s\n   Moves: %s\n\n' \
             "$stats" "$ivs" "$evs" "$moves"
-        _pokidle_render_sprite "$sprite"
-        printf '\n'
     done < <(jq -c '.[]' <<< "$rows")
 }
 pokidle_items() {
@@ -872,8 +910,9 @@ pokidle_items() {
         biome="$(jq -r '.biome_id' <<< "$d")"
         item="$(jq -r '.item' <<< "$d")"
         sprite="$(jq -r '.sprite_path // ""' <<< "$d")"
-        printf '%s   %s   %s\n' "$(date -d "@$ts" '+%F %H:%M')" "$biome" "$item"
+        [[ -n "$sprite" && -f "$sprite" ]] || sprite="$(_pokidle_item_sprite "$item")"
         _pokidle_render_sprite "$sprite"
+        printf '%s   %s   %s\n' "$(date -d "@$ts" '+%F %H:%M')" "$biome" "$item"
     done < <(jq -c '.[]' <<< "$rows")
 }
 
@@ -1181,7 +1220,7 @@ if [[ "${POKIDLE_TEST_SKIP_DISPATCH:-0}" == "0" ]]; then
     case "$cmd" in
         daemon)         pokidle_daemon "$@" ;;
         tick)           pokidle_tick "$@" ;;
-        list)           pokidle_list "$@" ;;
+        encounters)     pokidle_list "$@" ;;
         items)          pokidle_items "$@" ;;
         stats)          pokidle_stats "$@" ;;
         current)        pokidle_current "$@" ;;

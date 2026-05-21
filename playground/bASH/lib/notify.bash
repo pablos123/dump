@@ -36,11 +36,16 @@ _emit() {
     local body="$2"
     local urgency="$3"
     local icon="$4"
+    # Display duration in ms. notify-send -t; daemon may ignore for critical
+    # urgency (shiny/legendary often persist regardless). Empty = daemon default.
+    local timeout="${POKIDLE_NOTIFY_TIMEOUT_MS:-10000}"
     if [[ "${POKIDLE_NO_NOTIFY:-0}" == "1" ]]; then
-        printf 'TITLE: %s\nBODY: %s\nURGENCY: %s\nICON: %s\n' "$title" "$body" "$urgency" "$icon"
+        printf 'TITLE: %s\nBODY: %s\nURGENCY: %s\nICON: %s\nTIMEOUT: %s\n' \
+            "$title" "$body" "$urgency" "$icon" "$timeout"
         return 0
     fi
     local args=(-u "$urgency")
+    [[ -n "$timeout" ]] && args+=(-t "$timeout")
     [[ -n "$icon" ]] && args+=(-i "$icon")
     args+=(-h "string:desktop-entry:pokidle")
     notify-send "${args[@]}" "$title" "$body" || \

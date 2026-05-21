@@ -105,6 +105,18 @@ setup() {
     [[ "$output" == *"42"* ]]
 }
 
+@test "_emit: timeout defaults to 10000ms in dry-run" {
+    run notify_biome_change "volcano" "Volcano" 42 12
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TIMEOUT: 10000"* ]]
+}
+
+@test "_emit: POKIDLE_NOTIFY_TIMEOUT_MS overrides timeout" {
+    POKIDLE_NOTIFY_TIMEOUT_MS=30000 run notify_biome_change "volcano" "Volcano" 42 12
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TIMEOUT: 30000"* ]]
+}
+
 @test "notify_pokemon: legendary encounter emits LEGENDARY prefix + critical urgency" {
     POKIDLE_REPO_ROOT="$REPO_ROOT"
     POKIDLE_NO_NOTIFY=1

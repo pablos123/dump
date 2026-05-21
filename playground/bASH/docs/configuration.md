@@ -15,7 +15,7 @@ All paths follow the XDG Base Directory spec.
 |----------|---------|---------|
 | `POKIDLE_CONFIG_DIR` | `$XDG_CONFIG_HOME/pokidle` (`~/.config/pokidle`) | Holds `biomes.json`. |
 | `POKIDLE_DATA_DIR` | `$XDG_DATA_HOME/pokidle` (`~/.local/share/pokidle`) | Holds the SQLite DB and the asset symlinks (`biomes/`, `notify/`, `sounds/`). |
-| `POKIDLE_CACHE_DIR` | `$XDG_CACHE_HOME/pokidle` (`~/.cache/pokidle`) | Encounter pools (`pools/`) and downloaded sprites (`sprites/`). |
+| `POKIDLE_CACHE_DIR` | `$XDG_CACHE_HOME/pokidle` (`~/.cache/pokidle`) | Encounter pools (`pools/`). Sprites live under `POKEAPI_CACHE_DIR` instead. |
 | `POKIDLE_DB_PATH` | `$POKIDLE_DATA_DIR/pokidle.db` | SQLite database file. |
 
 PokeAPI client (shared with the standalone `pokeapi` CLI):
@@ -136,6 +136,7 @@ catches are never touched and never notify.
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `POKIDLE_NO_NOTIFY` | `0` | `1` = print title/body to stdout instead of `notify-send`. |
+| `POKIDLE_NOTIFY_TIMEOUT_MS` | `10000` | Display duration in ms (`notify-send -t`). Empty = daemon default. Critical-urgency events (shiny/legendary) may persist regardless, depending on the notification daemon. |
 
 ### Sound toggles
 
@@ -152,6 +153,18 @@ to hear everything set them all to `1`.
 | `POKIDLE_SOUND_BIOME_ENABLED` | `0` | biome rotation |
 | `POKIDLE_SOUND_LEVEL_ENABLED` | `0` | level-up tick |
 | `POKIDLE_SOUND_FRIENDSHIP_ENABLED` | `0` | friendship tick |
+
+### Sprites
+
+Sprite art goes through the pokeapi lib (`pokemon_sprite` / `item_sprite`),
+which resolves the URL from the cached API JSON and caches the image under
+`$POKEAPI_CACHE_DIR/sprites/` (pokemon: `<name>-<variant>.<ext>`, items:
+`sprites/items/<name>.<ext>`). Encounters/items fetch at tick time and lazily
+when listing (if the cached file is gone).
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `POKIDLE_FETCH_SPRITES` | `1` | `0` = never download sprites (tick or list); only show already-cached files. |
 
 ### Sound file paths
 

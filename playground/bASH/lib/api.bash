@@ -60,3 +60,25 @@ function pokemon_sprite() {
     fi
     printf '%s\n' "${path}"
 }
+
+function item_sprite_url() {
+    local name="$1" url
+    url="$(item "${name}" | jq -r '.sprites.default // empty')"
+    if [[ -z "${url}" ]]; then
+        printf 'item_sprite_url: no sprite for %s\n' "${name}" >&2
+        return 1
+    fi
+    printf '%s' "${url}"
+}
+
+function item_sprite() {
+    local name="$1" url ext path
+    url="$(item_sprite_url "${name}")" || return 1
+    ext="${url##*.}"
+    [[ "${ext}" =~ ^[a-zA-Z0-9]{1,5}$ ]] || ext=png
+    path="$(cache_blob_path "sprites/items/${name}" "${ext}")"
+    if [[ ! -f "${path}" ]]; then
+        http_download_url "${url}" "${path}" || return 1
+    fi
+    printf '%s\n' "${path}"
+}

@@ -29,8 +29,6 @@ Ensure `~/.local/bin` is on your `PATH`.
 git clone https://github.com/pablos123/pokidle.git && cd pokidle && ./pokidle setup
 ```
 
-Pass `--no-enable` to install without starting the service.
-
 Install is symlink-based. **Keep the repo where it is**, moving or deleting it breaks the install.
 
 To relocate: `uninstall`, move the clone, then `setup` again.

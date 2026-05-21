@@ -1,6 +1,9 @@
 # Sourced by every .bats file via `load helpers`.
 # Provides: REPO_ROOT, LIB_DIR, mktemp DB, fixture loader, pokeapi_get stub.
 
+# Never hit the network for sprite art during tests.
+export POKIDLE_FETCH_SPRITES=0
+
 REPO_ROOT="$(cd -- "${BATS_TEST_DIRNAME}/.." && pwd)"
 LIB_DIR="${REPO_ROOT}/lib"
 FIXTURE_DIR="${BATS_TEST_DIRNAME}/fixtures"

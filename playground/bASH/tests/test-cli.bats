@@ -59,7 +59,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     for sp in bulbasaur charmander squirtle pidgey rattata ekans sandshrew nidoran; do
         _ins_enc "$sid" "$sp" "$now"
     done
-    run "$REPO_ROOT/pokidle" list --export
+    run "$REPO_ROOT/pokidle" encounters --export
     [ "$status" -eq 0 ]
     local n; n="$(grep -c 'Nature' <<< "$output")"
     [ "$n" -eq 6 ]
@@ -72,7 +72,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     local i
     for i in 1 2 3 4 5; do _ins_enc "$sid" pidgey "$now"; done
     _ins_enc "$sid" zubat "$now"
-    run "$REPO_ROOT/pokidle" list --export
+    run "$REPO_ROOT/pokidle" encounters --export
     [ "$status" -eq 0 ]
     local n; n="$(grep -c 'Nature' <<< "$output")"
     [ "$n" -eq 2 ]
@@ -86,7 +86,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     _ins_enc "$sid" gengar "$now"
     _ins_item "$sid" leftovers "$now"
     _ins_item "$sid" choice-band "$now"
-    run "$REPO_ROOT/pokidle" list --export
+    run "$REPO_ROOT/pokidle" encounters --export
     [ "$status" -eq 0 ]
     [[ "$output" == *"@ Leftovers"* ]]
     [[ "$output" == *"@ Choice Band"* ]]
@@ -99,7 +99,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     _ins_enc "$sid" snorlax "$now"
     _ins_enc "$sid" gengar "$now"
     _ins_item "$sid" leftovers "$now"
-    run "$REPO_ROOT/pokidle" list --export
+    run "$REPO_ROOT/pokidle" encounters --export
     [ "$status" -eq 0 ]
     local n; n="$(grep -c '@ ' <<< "$output")"
     [ "$n" -eq 1 ]
@@ -114,7 +114,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     local s u
     s="$(date -d "@$((old - 86400))" +%F)"
     u="$(date -d "@$((old + 86400))" +%F)"
-    run "$REPO_ROOT/pokidle" list --export --since "$s" --until "$u"
+    run "$REPO_ROOT/pokidle" encounters --export --since "$s" --until "$u"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Gengar"* ]]
     [[ "$output" != *"Snorlax"* ]]
@@ -126,7 +126,7 @@ _ins_item() { # $1 sid  $2 item  $3 ts
     local now; now="$(date +%s)"
     _ins_enc "$sid" gengar "$now" 1
     _ins_enc "$sid" pidgey "$now" 0
-    run "$REPO_ROOT/pokidle" list --export --shiny
+    run "$REPO_ROOT/pokidle" encounters --export --shiny
     [ "$status" -eq 0 ]
     [[ "$output" == *"Gengar"* ]]
     [[ "$output" != *"Pidgey"* ]]
@@ -226,7 +226,7 @@ _seed_pokeapi_cache() {
     done
 }
 
-@test "pokidle list emits json with --json" {
+@test "pokidle encounters emits json with --json" {
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     local sid
     sid="$(sqlite3 "$POKIDLE_DB_PATH" \
@@ -245,7 +245,7 @@ _seed_pokeapi_cache() {
             22,18,15,12,15,30,
             '[\"bite\"]', NULL);"
 
-    run "$REPO_ROOT/pokidle" list --json --limit 5
+    run "$REPO_ROOT/pokidle" encounters --json --limit 5
     [ "$status" -eq 0 ]
     local n
     n="$(jq 'length' <<< "$output")"
@@ -253,7 +253,7 @@ _seed_pokeapi_cache() {
     [[ "$output" == *"zubat"* ]]
 }
 
-@test "pokidle list --export emits showdown set text" {
+@test "pokidle encounters --export emits showdown set text" {
     sqlite3 "$POKIDLE_DB_PATH" < "$REPO_ROOT/schema.sql"
     local sid
     sid="$(sqlite3 "$POKIDLE_DB_PATH" \
@@ -272,7 +272,7 @@ _seed_pokeapi_cache() {
             142,198,95,129,95,152,
             '[\"leaf-blade\",\"dragon-claw\",\"earthquake\",\"x-scissor\"]', NULL);"
 
-    run "$REPO_ROOT/pokidle" list --export
+    run "$REPO_ROOT/pokidle" encounters --export
     [ "$status" -eq 0 ]
     [[ "$output" == *"Sceptile @ Sitrus Berry"* ]]
     [[ "$output" == *"Adamant Nature"* ]]
