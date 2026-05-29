@@ -1,5 +1,0 @@
-{ "name": "grass", "pokemon": [
-    { "pokemon": { "name": "treecko" } },
-    { "pokemon": { "name": "grovyle" } },
-    { "pokemon": { "name": "sceptile" } }
-] }
