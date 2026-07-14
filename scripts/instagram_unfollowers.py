@@ -1,4 +1,5 @@
-#!/bin/python3
+#!/usr/bin/env python3
+# Deps: pip install instagrapi
 """List users that do not follow you back on Instagram."""
 
 import os
@@ -19,10 +20,10 @@ if blacklist_path.is_file():
             blacklist.append(line.strip())
 
 
-sessionid = sys.argv[1]
-if not sessionid:
+if len(sys.argv) < 2 or not sys.argv[1]:
     print("Pass the session ID!. Get it with: F12 -> Application -> Storage -> Cookies")
     exit(1)
+sessionid = sys.argv[1]
 if not cl.login_by_sessionid(sessionid):
     exit(1)
 

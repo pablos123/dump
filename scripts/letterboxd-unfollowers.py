@@ -1,4 +1,5 @@
-#!/bin/python3
+#!/usr/bin/env python3
+# Deps: pip install beautifulsoup4 requests
 """List users that do not follow you back on Letterboxd."""
 
 from time import sleep

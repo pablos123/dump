@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Deps: xinput (X11)
 # Exit if mouse's button is pressed.
 # Usage: mouse_pressed [left:default|right|wheel]
 
@@ -18,8 +19,8 @@ fi
 
 # See what to set here with 'xinput --list'
 XINPUT_MOUSE_ID=8
-state="$(xinput --query-state "$XINPUT_MOUSE_ID" | grep "\[$button\]=")"
-if [[ $state =~ "down" ]]; then
+state="$(xinput --query-state "${XINPUT_MOUSE_ID}" | grep "\[${button}\]=")"
+if [[ ${state} =~ "down" ]]; then
     exit 0
 fi
 

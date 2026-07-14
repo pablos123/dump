@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Deps: none (stdlib only)
 import random
 
 # This is not it. The <p> tag has not a fixed size in the page.

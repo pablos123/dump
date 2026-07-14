@@ -1,4 +1,5 @@
-#!/bin/python3
+#!/usr/bin/env python3
+# Deps: xclip (stdlib only otherwise)
 # Generates the url to import a movie to Letterboxd from a TMDB url
 
 import subprocess

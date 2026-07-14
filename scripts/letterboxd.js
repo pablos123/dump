@@ -1,3 +1,4 @@
+// Deps: none — paste in browser devtools console on letterboxd.com
 // Delete all ratings of the diary page and go the next page.
 document.querySelectorAll(".remove-rating.tooltip").forEach( e => e.click() ); document.querySelector("a.next").click()
 

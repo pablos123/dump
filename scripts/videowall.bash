@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Deps: ffmpeg, imagemagick (convert), pngswall (set $PNGSWALL or put on PATH)
+
+pngswall="${PNGSWALL:-pngswall}"
 
 help='
   ▌ ▐·▪  ·▄▄▄▄  ▄▄▄ .      ▄▄▌ ▐ ▄▌ ▄▄▄· ▄▄▌  ▄▄▌
@@ -18,11 +21,11 @@ video=
 limit=
 quit=false
 while getopts p:l:qh opt; do
-    case "$opt" in
-    p) video="$OPTARG" ;;
-    l) limit="-t $OPTARG" ;;
+    case "${opt}" in
+    p) video="${OPTARG}" ;;
+    l) limit="-t ${OPTARG}" ;;
     q) quit=true ;;
-    h) echo "$help" && exit 0 ;;
+    h) echo "${help}" && exit 0 ;;
     *) echo "Usage: videowall [-p '<video>' -l '<limit_in_seconds>']" && exit 1 ;;
     esac
 done
@@ -31,29 +34,29 @@ if [[ $(pgrep -c videowall) -gt 1 ]]; then
     pgrep --oldest videowall | xargs kill -9
 fi
 
-if $quit; then
+if ${quit}; then
     pgrep videowall | xargs kill -9
 fi
 
-if [[ -n $video ]]; then
+if [[ -n ${video} ]]; then
     echo "Preparing video... 🧙"
-    rm -rf "$HOME/.videowall"
-    mkdir -p "$HOME/.videowall"
-    eval "(ffmpeg -y -ss 00:00:00.000 $limit -i '$video' '$HOME/.videowall/%d.png' > /dev/null 2>&1) || echo 'Error! Check options and run again'"
-    find /home/pab/.videowall/ -type f | xargs -I{} convert {} -resize '1920x1080!' png32:{}
+    rm -rf "${HOME}/.videowall"
+    mkdir -p "${HOME}/.videowall"
+    eval "(ffmpeg -y -ss 00:00:00.000 ${limit} -i '${video}' '${HOME}/.videowall/%d.png' > /dev/null 2>&1) || echo 'Error! Check options and run again'"
+    find "${HOME}/.videowall/" -type f -exec convert {} -resize '1920x1080!' png32:{} \;
 fi
 
-if [[ -d "$HOME/.videowall" ]]; then
-    total_files=$(($(find "$HOME/.videowall" | wc -l) - 1))
-    if [[ -z $total_files ]]; then
+if [[ -d "${HOME}/.videowall" ]]; then
+    total_files=$(($(find "${HOME}/.videowall" | wc -l) - 1))
+    if [[ -z ${total_files} ]]; then
         echo "Prepare a video first!"
         exit 1
     fi
     iterator=1
     (while true; do
-        /home/pab/projects/dump/playground/wallpaper_manager/build/pngswall "$HOME/.videowall/${iterator}.png" >/dev/null 2>&1
+        "${pngswall}" "${HOME}/.videowall/${iterator}.png" >/dev/null 2>&1
         (( iterator += 1 ))
-        if (( $iterator > $total_files )); then
+        if (( iterator > total_files )); then
             iterator=1
         fi
     done) &
