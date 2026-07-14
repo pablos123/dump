@@ -1,1 +1,1 @@
-Cosas que cumplieron su propósito.
+Somewhat, finished things.
