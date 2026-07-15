@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deps: xinput (X11)
 # Exit if mouse's button is pressed.
-# Usage: mouse_pressed [left:default|right|wheel]
+# Usage: mouse-pressed [left:default|right|wheel]
 
 button=1
 if [[ -n $1 ]]; then

@@ -1,4 +1,4 @@
--- wezterm_ansi_scheme_exporter.lua
+-- wezterm-ansi-scheme-exporter.lua
 -- Deps: wezterm (run via `wezterm --config ... start` or lua with wezterm module)
 -- Export the 16 ANSI colors (0–15) for a set of popular WezTerm color schemes
 -- into C arrays compatible with the st color table format you showed.
