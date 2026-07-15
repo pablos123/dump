@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Deps: ffmpeg, imagemagick (convert), pngswall (set $PNGSWALL or put on PATH)
-
-pngswall="${PNGSWALL:-pngswall}"
+# Deps: ffmpeg, imagemagick (convert), hsetroot
 
 help='
   ▌ ▐·▪  ·▄▄▄▄  ▄▄▄ .      ▄▄▌ ▐ ▄▌ ▄▄▄· ▄▄▌  ▄▄▌
@@ -54,7 +52,7 @@ if [[ -d "${HOME}/.videowall" ]]; then
     fi
     iterator=1
     (while true; do
-        "${pngswall}" "${HOME}/.videowall/${iterator}.png" >/dev/null 2>&1
+        hsetroot -cover "${HOME}/.videowall/${iterator}.png" >/dev/null 2>&1
         (( iterator += 1 ))
         if (( iterator > total_files )); then
             iterator=1
