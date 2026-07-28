@@ -21,7 +21,9 @@
 # https://docs.qmk.fm/#/newbs_getting_started
 #
 
-python3 -m pip install --user qmk
+# NEW
+curl -fsSL https://install.qmk.fm | sh
+
 qmk setup
 
 # ***
@@ -34,14 +36,33 @@ qmk setup
 # From github:
 # https://raw.githubusercontent.com/foostan/qmk_firmware-hex/main/.build/crkbd_rev1_via.hex
 # I checked the md5sum of both of the files they're different mmm... I can't get VIA tu work.
-# I read that IS BETTER TO DO THE INSTALLING WITH ONLY ONW SIDE CONNECTED, i.e not using the TRRS cable.
+# I read that IS BETTER TO DO THE INSTALLATION WITH ONLY ONE SIDE CONNECTED, i.e not using the TRRS cable.
+
+
+# Non-GUI way
+# Search for the keyboard
+qmk list-keyboards | grep crkbd
+
+# Search for the keymap
+qmk list-keymaps -kb crkbd
+
+# Compile it
+qmk compile -kb crkbd/rev1 -km default
+
+# Flash the micro chips
+qmk flash crkbd_rev1_default.hex
+
+# GUI way
+# Go to https://config.qmk.fm/#/crkbd/rev1/LAYOUT_split_3x6_3
+# qmk flash ./<dowloaded_hex>
+
+
+# OLD
 # Compiling the firmware
-#
-cd "$HOME/qmk_firmware" && make crkbd:via
+# cd "${HOME}/qmk_firmware" && make crkbd:via
 
 # Flashing the micro
-#
-cd "$HOME/qmk_firmware" && make crkbd:via:avrdude
+# cd "${HOME}/qmk_firmware" && make crkbd:via:avrdude
 
 # YOU NEED TO DO THIS FOR THE OTHER PRO MICRO CHIP TOO
 # IMPORTANT!!! You need to connect the usb cable on the left side of the cornekeyboard.
