@@ -87,12 +87,12 @@
       "KC_F9",
       "KC_F10",
       "KC_RSFT",
-      "KC_LGUI",
-      "KC_TRNS",
+      "KC_LALT",
+      "MO(3)",
       "KC_SPC",
       "KC_ENT",
-      "MO(3)",
-      "KC_NO"
+      "KC_TRNS",
+      "KC_RALT"
     ],
     [
       "KC_TAB",
