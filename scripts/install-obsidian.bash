@@ -2,40 +2,32 @@
 set -Eeuo pipefail
 
 readonly OBSIDIAN_PATH="${HOME}/bin"
+readonly OBSIDIAN_BIN="${OBSIDIAN_PATH}/obsidian"
+readonly DOWNLOAD_PATH="${OBSIDIAN_PATH}/.obsidian.download"
+readonly VERSION_FILE="${OBSIDIAN_PATH}/.obsidian-version"
+
 CURRENT_VERSION=""
 
-# --------------------------------------------------
-# Get current installed version
-# --------------------------------------------------
 echo "==> Checking Obsidian version"
-CURRENT_VERSION_FILE=$(find "${OBSIDIAN_PATH}" -name "obsidian-v*" 2>/dev/null | head --lines=1 || true)
-
-if [[ -n "${CURRENT_VERSION_FILE}" ]]; then
-    CURRENT_VERSION=$(echo "${CURRENT_VERSION_FILE}" | grep --only-matching -E 'v[0-9]+\.[0-9]+\.[0-9]+' | head --lines=1 | sed 's/v//' || true)
+if [[ -f "${VERSION_FILE}" ]]; then
+    CURRENT_VERSION=$(<"${VERSION_FILE}")
 fi
 
-# --------------------------------------------------
-# Get latest version from GitHub
-# --------------------------------------------------
 LATEST_VERSION=$(curl --fail --no-progress-meter --location https://github.com/obsidianmd/obsidian-releases/releases/ | grep --only-matching -E 'v[0-9]+\.[0-9]+\.[0-9]+' | head --lines=1 | sed 's/v//' || true)
 
-# --------------------------------------------------
-# Download and install if newer version available
-# --------------------------------------------------
-if [[ -n "${LATEST_VERSION}" && "${LATEST_VERSION}" != "${CURRENT_VERSION}" ]]; then
+if [[ -n "${LATEST_VERSION}" && ("${LATEST_VERSION}" != "${CURRENT_VERSION}" || ! -x "${OBSIDIAN_BIN}") ]]; then
     echo "==> Updating Obsidian to v${LATEST_VERSION}"
     mkdir --parents "${OBSIDIAN_PATH}"
-    CURRENT_VERSION_PATH="${OBSIDIAN_PATH}/obsidian-v${CURRENT_VERSION}"
-    LATEST_VERSION_PATH="${OBSIDIAN_PATH}/obsidian-v${LATEST_VERSION}"
 
-    curl --location --no-progress-meter --output "${LATEST_VERSION_PATH}" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${LATEST_VERSION}/Obsidian-${LATEST_VERSION}.AppImage"
+    curl --location --no-progress-meter --output "${DOWNLOAD_PATH}" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${LATEST_VERSION}/Obsidian-${LATEST_VERSION}.AppImage"
 
-    if [[ -s "${LATEST_VERSION_PATH}" ]]; then
-        chmod +x "${LATEST_VERSION_PATH}" || true
-
-        if [[ -s "${CURRENT_VERSION_PATH}" ]]; then
-            rm --force "${CURRENT_VERSION_PATH}" || true
-        fi
+    if [[ -s "${DOWNLOAD_PATH}" ]]; then
+        chmod +x "${DOWNLOAD_PATH}"
+        mv --force "${DOWNLOAD_PATH}" "${OBSIDIAN_BIN}"
+        echo "${LATEST_VERSION}" >"${VERSION_FILE}"
+        rm --force "${OBSIDIAN_PATH}"/obsidian-v*
+    else
+        rm --force "${DOWNLOAD_PATH}"
     fi
 else
     echo "==> Obsidian is up to date (v${CURRENT_VERSION})"
