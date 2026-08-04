@@ -12,14 +12,8 @@ declare -ra FONTS=(
 readonly FONTS_DIR="${HOME}/.local/share/fonts"
 readonly NERD_FONTS_BASE_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download"
 
-# --------------------------------------------------
-# Prepare directory
-# --------------------------------------------------
 mkdir --parents "${FONTS_DIR}"
 
-# --------------------------------------------------
-# Install fonts
-# --------------------------------------------------
 for FONT in "${FONTS[@]}"; do
     echo "==> Installing ${FONT} Nerd font"
     FONT_DIR="${FONTS_DIR}/${FONT}Nerd"
@@ -36,8 +30,5 @@ for FONT in "${FONTS[@]}"; do
     rm --force "${ARCHIVE_PATH}"
 done
 
-# --------------------------------------------------
-# Refresh font cache
-# --------------------------------------------------
 echo "==> Refreshing font cache"
 fc-cache --really-force

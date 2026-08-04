@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# --------------------------------------------------
-# Google Chrome repository
-# --------------------------------------------------
 if [[ ! -f "/usr/share/keyrings/google-chrome.gpg" ]]; then
     echo "==> Setting up Google Chrome repository"
     curl --fail --no-progress-meter --location \
@@ -18,9 +15,6 @@ if [[ ! -f "/etc/apt/sources.list.d/google-chrome.list" ]]; then
     | sudo tee /etc/apt/sources.list.d/google-chrome.list
 fi
 
-# --------------------------------------------------
-# Packages
-# --------------------------------------------------
 sudo apt-get update
 
 echo "==> Installing Google Chrome"
@@ -32,9 +26,6 @@ sudo apt-get install --yes \
 # Fix fonts rendering incorrectly:
 # Disable the flag chrome://flags/#enable-gpu-rasterization
 
-# --------------------------------------------------
-# Default browser
-# --------------------------------------------------
 if command -v xdg-settings; then
     echo "==> Setting default browser"
     xdg-settings set default-web-browser 'google-chrome.desktop' || true

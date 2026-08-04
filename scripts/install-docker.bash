@@ -1,25 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# --------------------------------------------------
-# Prerequisites
-# --------------------------------------------------
 echo "==> Installing prerequisites"
 sudo apt-get update
 sudo apt-get install --yes ca-certificates curl
 
-# --------------------------------------------------
-# Add Docker's official GPG key
-# --------------------------------------------------
 echo "==> Setting up Docker repository"
 sudo mkdir -p /etc/apt/keyrings
 sudo chmod 0755 /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# --------------------------------------------------
-# Add the repository to Apt sources
-# --------------------------------------------------
 # VERSION_CODENAME is set by 'source /etc/os-release'
 # shellcheck disable=SC2154
 echo \
@@ -27,9 +18,6 @@ echo \
   $(source /etc/os-release && echo "${VERSION_CODENAME}") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list
 
-# --------------------------------------------------
-# Install Docker
-# --------------------------------------------------
 echo "==> Installing Docker"
 sudo apt-get update
 sudo apt-get install --yes docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin

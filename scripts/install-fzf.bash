@@ -4,9 +4,6 @@ set -Eeuo pipefail
 readonly FZF_REPO_URL="https://github.com/junegunn/fzf.git"
 readonly FZF_DIR="${HOME}/.base_repos/fzf"
 
-# --------------------------------------------------
-# Helper: Clone or update a git repository
-# --------------------------------------------------
 clone_or_update_repo() {
     local repo_url="$1"
     local repo_dir="$2"
@@ -22,14 +19,8 @@ clone_or_update_repo() {
     fi
 }
 
-# --------------------------------------------------
-# Clone or update repository
-# --------------------------------------------------
 clone_or_update_repo "${FZF_REPO_URL}" "${FZF_DIR}"
 
-# --------------------------------------------------
-# Install fzf
-# --------------------------------------------------
 cd "${FZF_DIR}" || exit 1
 
 echo "==> Installing fzf"

@@ -17,9 +17,6 @@ declare -ra DEPENDENCIES=(
     libnotify-dev
 )
 
-# --------------------------------------------------
-# Helper: Clone or update a git repository
-# --------------------------------------------------
 clone_or_update_repo() {
     local repo_url="$1"
     local repo_dir="$2"
@@ -35,9 +32,6 @@ clone_or_update_repo() {
     fi
 }
 
-# --------------------------------------------------
-# Helper: Build and install from source using make
-# --------------------------------------------------
 make_build_install() {
     local build_dir="$1"
     local make_arg="${2:-}"
@@ -54,18 +48,9 @@ make_build_install() {
     sudo make install
 }
 
-# --------------------------------------------------
-# Dependencies
-# --------------------------------------------------
 echo "==> Installing dunst dependencies"
 sudo apt-get install --yes "${DEPENDENCIES[@]}"
 
-# --------------------------------------------------
-# Clone or update repository
-# --------------------------------------------------
 clone_or_update_repo "${DUNST_REPO_URL}" "${DUNST_DIR}"
 
-# --------------------------------------------------
-# Build & install
-# --------------------------------------------------
 make_build_install "${DUNST_DIR}"
