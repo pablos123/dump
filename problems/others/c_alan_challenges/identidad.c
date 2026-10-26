@@ -11,7 +11,7 @@ int main() {
   scanf("%d", &columns);
 
   if (columns != rows) {
-    printf("It will be not be the identity matrix...\n");
+    printf("It's not going to be the identity matrix...\n");
     return 0;
   }
 
@@ -20,7 +20,7 @@ int main() {
 
   printf("%d, %d, %d, %d", rows, columns, sizeof(int), sizeof(matrix));
 
-  printf("Insert and press enter for every index of each column.\n");
+  printf("\nInsert and press enter for every index of each column.\n");
   for(int j = 0; j < columns; j++) {
     printf("Column %d:\n", j);
     for(int i = 0; i < rows; i++) {
